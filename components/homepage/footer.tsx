@@ -1,5 +1,3 @@
-"use client";
-
 import { PrivacyDialog, TermsDialog, ContactDialog } from "./legal-dialogs";
 
 const Footer = () => {
@@ -32,7 +30,7 @@ const Footer = () => {
 
         {/* Copyright */}
         <div className="text-xs" style={{ color: "#94A3B8" }}>
-          © 2026 Info Academy. All rights reserved.
+          © 2026 Info Academy. Все права защищены.
         </div>
       </div>
     </footer>

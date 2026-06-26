@@ -1,98 +1,80 @@
-"use client";
-
 import {
-  ArrowRight,
   BookOpen,
   FileText,
   TrendingUp,
   Award,
   CheckCircle2,
-  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const features = [
   {
     icon: BookOpen,
-    title: "All courses, all topics",
-    desc: "Access our entire library of courses",
+    title: "Все курсы, все темы",
+    desc: "Доступ к нашей библиотеке курсов",
   },
   {
     icon: CheckCircle2,
-    title: "Lesson tests & quizzes",
-    desc: "Test your knowledge after each lesson",
+    title: "Тесты и викторины",
+    desc: "Проверьте знания после каждого урока",
   },
   {
     icon: FileText,
-    title: "Downloadable PDFs",
-    desc: "Offline study materials included",
+    title: "Готовые PDF",
+    desc: "Готовые материалы для обучения",
   },
   {
     icon: TrendingUp,
-    title: "Progress tracking",
-    desc: "Detailed reports and achievements",
+    title: "Отслеживание прогресса",
+    desc: "Подробные отчеты и достижения",
   },
   {
     icon: Award,
-    title: "Verified certificates",
-    desc: "Industry-recognized on completion",
+    title: "Проверенные материалы",
+    desc: "Материалы от экспертов",
   },
 ];
 
 const HeroFeatures = () => {
   return (
     <section
-      className="pt-28 pb-24 px-4 sm:px-6 lg:px-8"
+      className="pt-24 pb-20 px-4 sm:px-6 lg:px-8"
       style={{ background: "#F8FAFC" }}
     >
       <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
         {/* LEFT — Text & CTA */}
         <div>
-          <div
-            className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-full mb-6"
-            style={{
-              background: "rgba(59,130,246,0.1)",
-              border: "1px solid rgba(59,130,246,0.2)",
-              color: "#3B82F6",
-            }}
-          >
-            <CheckCircle className="w-3.5 h-3.5" />
-            Trusted by 10,000+ learners
-          </div>
-
           <h1
-            className="text-5xl sm:text-6xl font-bold tracking-tight leading-[1.1] mb-5"
+            className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-5"
             style={{ color: "#1E3A5F" }}
           >
-            Master any skill with{" "}
-            <span style={{ color: "#3B82F6" }}>expert-led courses</span>
+            Подготовьтесь к вступительным экзаменам с{" "}
+            <span style={{ color: "#3B82F6" }}>нашими курсами</span>
           </h1>
 
           <p
             className="text-base leading-relaxed mb-8 max-w-md"
             style={{ color: "#64748B" }}
           >
-            Access unlimited courses, track your progress, and earn verified
-            certificates. Start your learning journey today.
+            Получите доступ к материалам, отслеживайте прогресс и получайте
+            практические и теоретические знания, которые нужны на экзамене.
+            Начните свое обучение сегодня.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-10">
             <Button
-              size="lg"
-              className="text-white font-medium px-8 py-6 text-lg"
+              className="h-14 px-10 text-2xl font-semibold text-white rounded-2xl"
               style={{ background: "#3B82F6", border: "none" }}
             >
-              Get started
-              <ArrowRight className="ml-2 w-4 h-4" />
+              Начать
             </Button>
           </div>
 
           <div className="grid grid-cols-4 gap-4">
             {[
-              { num: "500+", label: "Courses" },
-              { num: "50+", label: "Instructors" },
-              { num: "10K+", label: "Students" },
-              { num: "4.9★", label: "Rating" },
+              { num: "50+", label: "Курсов" },
+              { num: "2000+", label: "Заданий" },
+              { num: "5+", label: "Книг" },
             ].map(({ num, label }) => (
               <div key={label}>
                 <div
@@ -121,7 +103,7 @@ const HeroFeatures = () => {
             className="text-xs font-semibold tracking-widest uppercase mb-5"
             style={{ color: "#64748B" }}
           >
-            What you get
+            Что вы получите
           </p>
 
           <div className="space-y-1">

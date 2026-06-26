@@ -1,37 +1,35 @@
-"use client";
-
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const plans = [
   {
-    name: "Monthly",
+    name: "Ежемесячно",
     price: 19,
-    period: "/month",
-    description: "Perfect for getting started",
+    period: "/месяц",
+    description: "Идеально для начала",
     features: [
-      "Access to all courses",
-      "Lesson quizzes",
-      "Progress tracking",
-      "Basic certificates",
+      "Доступ ко всем курсам",
+      "Тесты к урокам",
+      "Отслеживание прогресса",
+      "Базовые сертификаты",
     ],
     popular: false,
   },
   {
-    name: "Yearly",
+    name: "Ежегодно",
     price: 149,
-    period: "/year",
-    description: "Best value for committed learners",
+    period: "/год",
+    description: "Лучшее значение для мотивированных учеников",
     features: [
-      "Access to all courses",
-      "Lesson quizzes",
-      "Progress tracking",
-      "Verified certificates",
-      "Priority support",
-      "Downloadable PDFs",
+      "Доступ ко всем курсам",
+      "Тесты к урокам",
+      "Отслеживание прогресса",
+      "Подтвержденные сертификаты",
+      "Приоритетная поддержка",
+      "Скачиваемые PDF",
     ],
     popular: true,
-    badge: "Save 35%",
+    badge: "Экономия 35%",
   },
 ];
 
@@ -48,11 +46,11 @@ const Pricing = () => {
             className="text-4xl sm:text-5xl font-bold mb-3"
             style={{ color: "#1E3A5F" }}
           >
-            Simple, transparent{" "}
-            <span style={{ color: "#3B82F6" }}>pricing</span>
+            Простое, прозрачное{" "}
+            <span style={{ color: "#3B82F6" }}>ценообразование</span>
           </h2>
           <p className="text-base" style={{ color: "#64748B" }}>
-            Choose the plan that works best for you
+            Выберите план, который лучше всего подходит вам
           </p>
         </div>
 
@@ -132,7 +130,7 @@ const Pricing = () => {
                       }
                 }
               >
-                Get started
+                Начать
               </Button>
             </div>
           ))}

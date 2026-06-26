@@ -1,6 +1,3 @@
-"use client";
-
-import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,18 +9,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
 
-const triggerStyle = {
-  color: "#64748B",
-  background: "transparent",
-  border: "none",
-  fontSize: "13px",
-  padding: "6px 12px",
-};
-
-const triggerHover = {
-  color: "#1E3A5F",
-};
-
 function NavLink({
   children,
   onClick,
@@ -31,14 +16,15 @@ function NavLink({
   children: React.ReactNode;
   onClick?: () => void;
 }) {
-  const [hovered, setHovered] = React.useState(false);
   return (
     <Button
       variant="ghost"
       onClick={onClick}
-      style={hovered ? { ...triggerStyle, ...triggerHover } : triggerStyle}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="text-slate-500 hover:text-[#1E3A5F] bg-transparent border-none text-[13px] px-3 py-1.5"
+      style={{
+        background: "transparent",
+        border: "none",
+      }}
     >
       {children}
     </Button>
@@ -49,40 +35,41 @@ export function PrivacyDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <NavLink>Privacy</NavLink>
+        <NavLink>Конфиденциальность</NavLink>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Privacy Policy</DialogTitle>
+          <DialogTitle>Политика конфиденциальности</DialogTitle>
           <DialogDescription>
-            Your privacy is important to us. Please read our policy carefully.
+            Ваша конфиденциальность важна для нас. Пожалуйста, внимательно
+            ознакомьтесь с нашей политикой.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-sm">
           <div>
-            <h3 className="font-semibold mb-2">Course Content Sharing</h3>
+            <h3 className="font-semibold mb-2">Обмен содержанием курса</h3>
             <p className="text-muted-foreground">
-              All course materials, including videos, PDFs, quizzes, and other
-              content, are strictly for personal use only. Sharing,
-              distributing, or reproducing course content without explicit
-              written permission is prohibited. Your account may be terminated
-              if you violate this policy.
+              Все материалы курса, включая видео, PDF, тесты и другое
+              содержание, предназначены исключительно для личного использования.
+              Распространение, передача или воспроизведение содержания курса без
+              явного письменного разрешения запрещено. Ваш аккаунт может быть
+              прекращен, если вы нарушите эту политику.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold mb-2">Data Collection</h3>
+            <h3 className="font-semibold mb-2">Сбор данных</h3>
             <p className="text-muted-foreground">
-              We collect information necessary to provide our services,
-              including your learning progress, quiz results, and account
-              details. We never sell your personal data to third parties.
+              Мы собираем информацию, необходимую для предоставления наших
+              услуг, включая ваш прогресс обучения, результаты тестов и данные
+              аккаунта. Мы никогда не продаем ваши личные данные третьим лицам.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold mb-2">Account Security</h3>
+            <h3 className="font-semibold mb-2">Безопасность аккаунта</h3>
             <p className="text-muted-foreground">
-              You are responsible for maintaining the confidentiality of your
-              account credentials. Sharing your account with others is a
-              violation of our terms.
+              Вы несете ответственность за сохранение конфиденциальности ваших
+              учетных данных. Передача вашего аккаунта другим лицам является
+              нарушением наших условий.
             </p>
           </div>
         </div>
@@ -95,33 +82,36 @@ export function TermsDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <NavLink>Terms</NavLink>
+        <NavLink>Условия</NavLink>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Terms of Service</DialogTitle>
+          <DialogTitle>Условия обслуживания</DialogTitle>
           <DialogDescription>
-            By using Info Academy, you agree to these terms and conditions.
+            Используя Info Academy, вы соглашаетесь с этими условиями.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-sm">
           <div>
-            <h3 className="font-semibold mb-2">Course Usage Restrictions</h3>
+            <h3 className="font-semibold mb-2">
+              Ограничения использования курсов
+            </h3>
             <p className="text-muted-foreground">
-              All courses and materials provided by Info Academy are for
-              individual, non-commercial use only. You may not share, resell,
-              redistribute, or make available any course content to others. This
-              includes but is not limited to: video downloads, PDF materials,
-              quiz content, and certificates.
+              Все курсы и материалы, предоставленные академией, предназначены
+              только для индивидуального некоммерческого использования. Вы не
+              можете передавать, перепродавать, распространять или делать
+              доступным любое содержание курса другим лицам. Это включает, но не
+              ограничивается: загрузку видео, PDF материалов, содержание тестов
+              и сертификаты.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold mb-2">Account Terms</h3>
+            <h3 className="font-semibold mb-2">Условия аккаунта</h3>
             <p className="text-muted-foreground">
-              Each account is for one individual only. Account sharing is
-              strictly prohibited and may result in immediate termination
-              without refund. You must provide accurate information when
-              creating your account.
+              Каждый аккаунт предназначен только для одного человека. Передача
+              аккаунта строго запрещена и может привести к немедленному
+              прекращению без возврата средств. Вы должны предоставлять точную
+              информацию при создании аккаунта.
             </p>
           </div>
         </div>
@@ -139,12 +129,14 @@ export function ContactDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <NavLink>Contact</NavLink>
+        <NavLink>Контакт</NavLink>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Contact Us</DialogTitle>
-          <DialogDescription>Reach out to us via email</DialogDescription>
+          <DialogTitle>Свяжитесь с нами</DialogTitle>
+          <DialogDescription>
+            Свяжитесь с нами по электронной почте
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div
@@ -165,7 +157,7 @@ export function ContactDialog() {
               className="text-sm mt-1"
               style={{ color: "rgba(255,255,255,0.5)" }}
             >
-              Email us for any inquiries
+              Напишите нам по любым вопросам
             </p>
           </div>
           <Button
@@ -174,7 +166,7 @@ export function ContactDialog() {
             style={{ background: "#3B82F6", border: "none" }}
           >
             <Mail className="w-4 h-4 mr-2" />
-            Open Email Client
+            Написать нам
           </Button>
         </div>
       </DialogContent>
