@@ -6,6 +6,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const features = [
   {
@@ -62,12 +63,14 @@ const HeroFeatures = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-10">
-            <Button
-              className="h-14 px-10 text-2xl font-semibold text-white rounded-2xl"
-              style={{ background: "#3B82F6", border: "none" }}
-            >
-              Начать
-            </Button>
+            <Link href="/login">
+              <Button
+                className="h-14 px-10 text-2xl font-semibold text-white rounded-2xl"
+                style={{ background: "#3B82F6", border: "none" }}
+              >
+                Начать
+              </Button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-4 gap-4">

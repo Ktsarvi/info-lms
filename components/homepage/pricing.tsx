@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const plans = [
   {
@@ -46,12 +47,8 @@ const Pricing = () => {
             className="text-4xl sm:text-5xl font-bold mb-3"
             style={{ color: "#1E3A5F" }}
           >
-            Простое, прозрачное{" "}
-            <span style={{ color: "#3B82F6" }}>ценообразование</span>
+            Выберите план, который подходит вам
           </h2>
-          <p className="text-base" style={{ color: "#64748B" }}>
-            Выберите план, который лучше всего подходит вам
-          </p>
         </div>
 
         <div
@@ -95,7 +92,7 @@ const Pricing = () => {
                   className="text-5xl font-bold"
                   style={{ color: "#1E3A5F" }}
                 >
-                  ${plan.price}
+                  {plan.price}₼
                 </span>
                 <span className="text-sm" style={{ color: "#94A3B8" }}>
                   {plan.period}
@@ -118,20 +115,22 @@ const Pricing = () => {
                 ))}
               </ul>
 
-              <Button
-                className="w-full font-medium"
-                style={
-                  plan.popular
-                    ? { background: "#3B82F6", color: "#fff", border: "none" }
-                    : {
-                        background: "transparent",
-                        color: "#1E3A5F",
-                        border: "1px solid #CBD5E1",
-                      }
-                }
-              >
-                Начать
-              </Button>
+              <Link href="/login">
+                <Button
+                  className="w-full font-medium"
+                  style={
+                    plan.popular
+                      ? { background: "#3B82F6", color: "#fff", border: "none" }
+                      : {
+                          background: "transparent",
+                          color: "#1E3A5F",
+                          border: "1px solid #CBD5E1",
+                        }
+                  }
+                >
+                  Начать
+                </Button>
+              </Link>
             </div>
           ))}
         </div>

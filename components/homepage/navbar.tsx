@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const Navbar = () => {
   return (
@@ -23,23 +24,27 @@ const Navbar = () => {
 
           {/* CTAs — right */}
           <div className="hidden md:flex items-center justify-end gap-2">
-            <Button
-              size="lg"
-              className="px-6 py-5 font-medium text-lg text-white"
-              style={{ background: "#3B82F6", border: "none" }}
-            >
-              Начать
-            </Button>
+            <Link href="/login">
+              <Button
+                size="lg"
+                className="px-6 py-5 font-medium text-lg text-white"
+                style={{ background: "#3B82F6", border: "none" }}
+              >
+                Начать
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile button */}
           <div className="md:hidden flex justify-end col-start-3">
-            <Button
-              className="text-base font-medium text-white"
-              style={{ background: "#3B82F6", border: "none" }}
-            >
-              Начать
-            </Button>
+            <Link href="/login">
+              <Button
+                className="text-base font-medium text-white"
+                style={{ background: "#3B82F6", border: "none" }}
+              >
+                Начать
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

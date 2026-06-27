@@ -129,7 +129,7 @@ export function ContactDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <NavLink>Контакт</NavLink>
+        <NavLink>Контакты</NavLink>
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
