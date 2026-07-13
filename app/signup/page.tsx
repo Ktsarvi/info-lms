@@ -6,11 +6,13 @@ import React from "react";
 
 const SignupPage = () => {
   const [name, setName] = React.useState("");
+  const [surname, setSurname] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [errors, setErrors] = React.useState<{
     name?: string;
+    surname?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
@@ -19,6 +21,7 @@ const SignupPage = () => {
   const validateForm = () => {
     const newErrors: {
       name?: string;
+      surname?: string;
       email?: string;
       password?: string;
       confirmPassword?: string;
@@ -28,6 +31,12 @@ const SignupPage = () => {
       newErrors.name = "Имя обязательно";
     } else if (name.length < 2) {
       newErrors.name = "Имя должно быть минимум 2 символа";
+    }
+
+    if (!surname) {
+      newErrors.surname = "Фамилия обязательна";
+    } else if (surname.length < 2) {
+      newErrors.surname = "Фамилия должна быть минимум 2 символа";
     }
 
     if (!email) {
@@ -56,7 +65,7 @@ const SignupPage = () => {
     e.preventDefault();
     if (validateForm()) {
       // Handle signup logic here
-      console.log("Signup:", { name, email, password });
+      console.log("Signup:", { name, surname, email, password });
     }
   };
 
@@ -97,6 +106,26 @@ const SignupPage = () => {
               />
               {errors.name && (
                 <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label
+                className="block text-sm font-medium mb-2"
+                style={{ color: "#1E3A5F" }}
+              >
+                Фамилия
+              </label>
+              <input
+                type="text"
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ borderColor: errors.surname ? "#EF4444" : "#E2E8F0" }}
+                placeholder="Ваша фамилия"
+              />
+              {errors.surname && (
+                <p className="text-red-500 text-xs mt-1">{errors.surname}</p>
               )}
             </div>
 
