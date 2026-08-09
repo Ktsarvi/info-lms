@@ -1079,14 +1079,14 @@ export const exams: Exam[] = [
   {
     id: 101,
     examNumber: 1,
-    title: "Экзамен: Информатика и безопасность",
+    title: "Экзамен 1",
     description: "Контрольный тест по первой главе и основам безопасности.",
     status: "completed",
   },
   {
     id: 102,
     examNumber: 2,
-    title: "Экзамен: Системы счисления",
+    title: "Экзамен 2",
     description:
       "Проверка навыков перевода и вычислений в позиционных системах.",
     status: "completed",
@@ -1094,7 +1094,7 @@ export const exams: Exam[] = [
   {
     id: 103,
     examNumber: 3,
-    title: "Экзамен: Кодирование информации",
+    title: "Экзамен 3",
     description:
       "Тест по измерению информации, кодированию мультимедиа и текстов.",
     status: "not-started",
@@ -1102,14 +1102,14 @@ export const exams: Exam[] = [
   {
     id: 104,
     examNumber: 4,
-    title: "Экзамен: Моделирование",
+    title: "Экзамен 4",
     description: "Проверка понимания графов, таблиц и компьютерных моделей.",
     status: "not-started",
   },
   {
     id: 105,
     examNumber: 5,
-    title: "Экзамен: Аппаратное и программное обеспечение",
+    title: "Экзамен 5",
     description:
       "Контрольные вопросы по логической структуре ПК и классификации ПО.",
     status: "not-started",
@@ -1117,7 +1117,7 @@ export const exams: Exam[] = [
   {
     id: 106,
     examNumber: 6,
-    title: "Экзамен: Операционная система и обработка текстов",
+    title: "Экзамен 6",
     description:
       "Практические вопросы по файловым системам и верстке документов.",
     status: "not-started",
@@ -1125,28 +1125,28 @@ export const exams: Exam[] = [
   {
     id: 107,
     examNumber: 7,
-    title: "Экзамен: Электронные таблицы и Базы данных",
+    title: "Экзамен 7",
     description: "Тест по формулам в Excel/Sheets и проектированию СУБД.",
     status: "not-started",
   },
   {
     id: 108,
     examNumber: 8,
-    title: "Экзамен: Алгоритмизация и программирование",
+    title: "Экзамен 8",
     description: "Большая проверочная работа по Python и блок-схемам.",
     status: "not-started",
   },
   {
     id: 109,
     examNumber: 9,
-    title: "Экзамен: Компьютерные сети и Интернет",
+    title: "Экзамен 9",
     description: "Сетевые технологии, протоколы, IP-адресация и службы.",
     status: "not-started",
   },
   {
     id: 110,
     examNumber: 10,
-    title: "Итоговый экзамен",
+    title: "Экзамен 10",
     description:
       "Итоговое комплексное тестирование по всему курсу информатики.",
     status: "not-started",
