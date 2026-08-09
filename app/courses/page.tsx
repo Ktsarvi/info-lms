@@ -48,6 +48,11 @@ export default function CoursesPage() {
     return matchesSearch;
   });
 
+  const completedCount = lessons.filter((l) => l.status === "completed").length;
+  const totalCount = lessons.length;
+  const overallPct =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
   return (
     <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
       {/* Shared navbar — user prop swaps "Начать" for the profile dropdown */}
@@ -63,7 +68,7 @@ export default function CoursesPage() {
             Информатика
           </h1>
           <p className="text-muted-foreground text-sm">
-            15 уроков · 10 дополнительных экзаменов
+            {totalCount} уроков · 10 дополнительных экзаменов
           </p>
         </div>
 
@@ -87,14 +92,14 @@ export default function CoursesPage() {
                   Общий прогресс курса
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Пройдено 4 из 15 уроков
+                  Пройдено {completedCount} из {totalCount} уроков
                 </p>
               </div>
               <div className="flex-1 min-w-40">
-                <Progress value={27} className="h-2" />
+                <Progress value={overallPct} className="h-2" />
               </div>
               <span className="text-sm font-bold" style={{ color: "#3B82F6" }}>
-                27%
+                {overallPct}%
               </span>
             </div>
           </CardContent>

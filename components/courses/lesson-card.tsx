@@ -71,7 +71,7 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
             className="h-7 w-full text-xs px-3 text-white"
             style={{ background: color, border: "none" }}
           >
-            {isCompleted ? "Повторить" : "Продолжить"}
+            {isCompleted ? "Повторить" : isInProgress ? "Продолжить" : "Начать"}
           </Button>
         </Link>
       </CardFooter>
