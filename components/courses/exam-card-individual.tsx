@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,14 +37,16 @@ export function ExamCardIndividual({ exam }: { exam: Exam }) {
       </CardHeader>
 
       <CardFooter className="pt-3">
-        <Button
-          size="sm"
-          id={`exam-btn-${exam.id}`}
-          className="h-7 w-full text-xs px-3 text-white"
-          style={{ background: color, border: "none" }}
-        >
-          {exam.status === "completed" ? "Повторить" : "Начать"}
-        </Button>
+        <Link href={`/courses/${exam.id}`} className="w-full">
+          <Button
+            size="sm"
+            id={`exam-btn-${exam.id}`}
+            className="h-7 w-full text-xs px-3 text-white"
+            style={{ background: color, border: "none" }}
+          >
+            {exam.status === "completed" ? "Повторить" : "Начать"}
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );

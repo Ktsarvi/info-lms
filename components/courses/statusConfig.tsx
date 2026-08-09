@@ -5,7 +5,10 @@ export const statusConfig: Record<
   LessonStatus,
   {
     label: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: React.ComponentType<{
+      className?: string;
+      style?: React.CSSProperties;
+    }>;
     color: string;
     badgeVariant: "default" | "secondary" | "outline";
   }

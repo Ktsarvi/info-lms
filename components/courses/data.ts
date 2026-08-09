@@ -2,6 +2,15 @@
 
 export type LessonStatus = "completed" | "in-progress" | "not-started";
 export type ExamStatus = "completed" | "not-started";
+export type MaterialType = "pdf";
+
+export interface Material {
+  id: string;
+  title: string;
+  type: MaterialType;
+  completed: boolean;
+  description?: string;
+}
 
 export interface Lesson {
   id: number;
@@ -11,6 +20,7 @@ export interface Lesson {
   progress: number;
   tags: string[];
   lessonNumber: number;
+  materials: Material[];
 }
 
 export interface Exam {
@@ -40,6 +50,29 @@ export const lessons: Lesson[] = [
     status: "completed",
     progress: 100,
     tags: ["Основы", "Теория"],
+    materials: [
+      {
+        id: "1-1",
+        title: "Лекция: Введение в информатику",
+        type: "pdf",
+        completed: true,
+        description: "Основной теоретический материал урока",
+      },
+      {
+        id: "1-2",
+        title: "История ЭВМ",
+        type: "pdf",
+        completed: true,
+        description: "Краткая история вычислительных машин",
+      },
+      {
+        id: "1-3",
+        title: "Проверочное упражнение",
+        type: "pdf",
+        completed: true,
+        description: "Тест по пройденному материалу",
+      },
+    ],
   },
   {
     id: 2,
@@ -50,6 +83,29 @@ export const lessons: Lesson[] = [
     status: "completed",
     progress: 100,
     tags: ["Математика", "Двоичная"],
+    materials: [
+      {
+        id: "2-1",
+        title: "Лекция: Системы счисления",
+        type: "pdf",
+        completed: true,
+        description: "Теория систем счисления",
+      },
+      {
+        id: "2-2",
+        title: "Видео: Перевод чисел",
+        type: "pdf",
+        completed: true,
+        description: "Наглядное объяснение перевода",
+      },
+      {
+        id: "2-3",
+        title: "Задачи на перевод",
+        type: "pdf",
+        completed: true,
+        description: "Практические задачи",
+      },
+    ],
   },
   {
     id: 3,
@@ -60,6 +116,29 @@ export const lessons: Lesson[] = [
     status: "completed",
     progress: 100,
     tags: ["Кодирование", "ASCII"],
+    materials: [
+      {
+        id: "3-1",
+        title: "Лекция: Кодирование информации",
+        type: "pdf",
+        completed: true,
+        description: "ASCII, Unicode и другие кодировки",
+      },
+      {
+        id: "3-2",
+        title: "Таблица кодировок ASCII",
+        type: "pdf",
+        completed: true,
+        description: "Справочный материал",
+      },
+      {
+        id: "3-3",
+        title: "Практика: кодирование текста",
+        type: "pdf",
+        completed: true,
+        description: "Упражнения по кодированию",
+      },
+    ],
   },
   {
     id: 4,
@@ -70,6 +149,29 @@ export const lessons: Lesson[] = [
     status: "completed",
     progress: 100,
     tags: ["Алгоритмы", "Блок-схемы"],
+    materials: [
+      {
+        id: "4-1",
+        title: "Лекция: Алгоритмы",
+        type: "pdf",
+        completed: true,
+        description: "Свойства и виды алгоритмов",
+      },
+      {
+        id: "4-2",
+        title: "Видео: Блок-схемы",
+        type: "pdf",
+        completed: true,
+        description: "Построение блок-схем",
+      },
+      {
+        id: "4-3",
+        title: "Составление блок-схем",
+        type: "pdf",
+        completed: true,
+        description: "Практическое задание",
+      },
+    ],
   },
   {
     id: 5,
@@ -80,6 +182,36 @@ export const lessons: Lesson[] = [
     status: "in-progress",
     progress: 65,
     tags: ["Программирование", "Языки"],
+    materials: [
+      {
+        id: "5-1",
+        title: "Лекция: Основы программирования",
+        type: "pdf",
+        completed: true,
+        description: "Введение в мир программирования",
+      },
+      {
+        id: "5-2",
+        title: "Видео: Компиляторы vs Интерпретаторы",
+        type: "pdf",
+        completed: true,
+        description: "Разница между трансляторами",
+      },
+      {
+        id: "5-3",
+        title: "Статья: Языки программирования",
+        type: "pdf",
+        completed: false,
+        description: "Обзор популярных языков",
+      },
+      {
+        id: "5-4",
+        title: "Первая программа",
+        type: "pdf",
+        completed: false,
+        description: "Написать Hello World",
+      },
+    ],
   },
   {
     id: 6,
@@ -90,6 +222,29 @@ export const lessons: Lesson[] = [
     status: "in-progress",
     progress: 30,
     tags: ["Программирование", "Логика"],
+    materials: [
+      {
+        id: "6-1",
+        title: "Лекция: Ветвления и циклы",
+        type: "pdf",
+        completed: true,
+        description: "Теория условных операторов",
+      },
+      {
+        id: "6-2",
+        title: "Задачи: if/else",
+        type: "pdf",
+        completed: false,
+        description: "Практические задачи",
+      },
+      {
+        id: "6-3",
+        title: "Задачи: циклы",
+        type: "pdf",
+        completed: false,
+        description: "Задачи на циклы for и while",
+      },
+    ],
   },
   {
     id: 7,
@@ -99,6 +254,29 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Данные", "Массивы"],
+    materials: [
+      {
+        id: "7-1",
+        title: "Лекция: Массивы и строки",
+        type: "pdf",
+        completed: false,
+        description: "Основы работы с массивами",
+      },
+      {
+        id: "7-2",
+        title: "Видео: Операции со строками",
+        type: "pdf",
+        completed: false,
+        description: "Разбор строковых операций",
+      },
+      {
+        id: "7-3",
+        title: "Практика: массивы",
+        type: "pdf",
+        completed: false,
+        description: "Задачи на массивы",
+      },
+    ],
   },
   {
     id: 8,
@@ -109,6 +287,22 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Функции", "Модули"],
+    materials: [
+      {
+        id: "8-1",
+        title: "Лекция: Процедуры и функции",
+        type: "pdf",
+        completed: false,
+        description: "Модульное программирование",
+      },
+      {
+        id: "8-2",
+        title: "Практика: написание функций",
+        type: "pdf",
+        completed: false,
+        description: "Создание и вызов функций",
+      },
+    ],
   },
   {
     id: 9,
@@ -118,6 +312,22 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Файлы", "I/O"],
+    materials: [
+      {
+        id: "9-1",
+        title: "Лекция: Файловый ввод-вывод",
+        type: "pdf",
+        completed: false,
+        description: "Работа с файлами",
+      },
+      {
+        id: "9-2",
+        title: "Практика: чтение файлов",
+        type: "pdf",
+        completed: false,
+        description: "Упражнения по I/O",
+      },
+    ],
   },
   {
     id: 10,
@@ -128,6 +338,29 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Сети", "Интернет"],
+    materials: [
+      {
+        id: "10-1",
+        title: "Лекция: Компьютерные сети",
+        type: "pdf",
+        completed: false,
+        description: "Основы сетевых технологий",
+      },
+      {
+        id: "10-2",
+        title: "Видео: Модель OSI",
+        type: "pdf",
+        completed: false,
+        description: "Семиуровневая модель",
+      },
+      {
+        id: "10-3",
+        title: "Статья: TCP/IP",
+        type: "pdf",
+        completed: false,
+        description: "Протоколы интернета",
+      },
+    ],
   },
   {
     id: 11,
@@ -137,6 +370,22 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["БД", "SQL"],
+    materials: [
+      {
+        id: "11-1",
+        title: "Лекция: Основы баз данных",
+        type: "pdf",
+        completed: false,
+        description: "Реляционные СУБД",
+      },
+      {
+        id: "11-2",
+        title: "Практика: SQL-запросы",
+        type: "pdf",
+        completed: false,
+        description: "Написание SQL",
+      },
+    ],
   },
   {
     id: 12,
@@ -147,6 +396,29 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["ОС", "Системы"],
+    materials: [
+      {
+        id: "12-1",
+        title: "Лекция: Операционные системы",
+        type: "pdf",
+        completed: false,
+        description: "Функции и виды ОС",
+      },
+      {
+        id: "12-2",
+        title: "Видео: Управление процессами",
+        type: "pdf",
+        completed: false,
+        description: "Планировщик задач",
+      },
+      {
+        id: "12-3",
+        title: "Практика: файловые системы",
+        type: "pdf",
+        completed: false,
+        description: "Работа с файловой системой",
+      },
+    ],
   },
   {
     id: 13,
@@ -157,6 +429,29 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Безопасность", "Защита"],
+    materials: [
+      {
+        id: "13-1",
+        title: "Лекция: Инфобезопасность",
+        type: "pdf",
+        completed: false,
+        description: "Методы защиты информации",
+      },
+      {
+        id: "13-2",
+        title: "Статья: Шифрование",
+        type: "pdf",
+        completed: false,
+        description: "Симметричное и асимметричное",
+      },
+      {
+        id: "13-3",
+        title: "Тест: угрозы и защита",
+        type: "pdf",
+        completed: false,
+        description: "Проверочный тест",
+      },
+    ],
   },
   {
     id: 14,
@@ -167,6 +462,22 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Медиа", "Форматы"],
+    materials: [
+      {
+        id: "14-1",
+        title: "Лекция: Мультимедиа",
+        type: "pdf",
+        completed: false,
+        description: "Форматы и сжатие",
+      },
+      {
+        id: "14-2",
+        title: "Видео: Обработка изображений",
+        type: "pdf",
+        completed: false,
+        description: "Растровая и векторная графика",
+      },
+    ],
   },
   {
     id: 15,
@@ -177,6 +488,29 @@ export const lessons: Lesson[] = [
     status: "not-started",
     progress: 0,
     tags: ["Общество", "Этика"],
+    materials: [
+      {
+        id: "15-1",
+        title: "Лекция: Социальная информатика",
+        type: "pdf",
+        completed: false,
+        description: "ИТ и общество",
+      },
+      {
+        id: "15-2",
+        title: "Статья: Правовые аспекты",
+        type: "pdf",
+        completed: false,
+        description: "Закон об ИТ",
+      },
+      {
+        id: "15-3",
+        title: "Дискуссия: этика в ИТ",
+        type: "pdf",
+        completed: false,
+        description: "Обсуждение этических вопросов",
+      },
+    ],
   },
 ];
 

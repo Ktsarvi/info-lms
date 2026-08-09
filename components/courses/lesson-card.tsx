@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -63,14 +64,16 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
       </CardContent>
 
       <CardFooter className="pt-3">
-        <Button
-          size="sm"
-          id={`lesson-btn-${lesson.id}`}
-          className="h-7 w-full text-xs px-3 text-white"
-          style={{ background: color, border: "none" }}
-        >
-          {isCompleted ? "Повторить" : "Продолжить"}
-        </Button>
+        <Link href={`/courses/${lesson.id}`} className="w-full">
+          <Button
+            size="sm"
+            id={`lesson-btn-${lesson.id}`}
+            className="h-7 w-full text-xs px-3 text-white"
+            style={{ background: color, border: "none" }}
+          >
+            {isCompleted ? "Повторить" : "Продолжить"}
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
