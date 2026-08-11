@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Dialog,
   DialogContent,
@@ -8,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
+import { termsContent, privacyContent } from "./legal-content";
 
 function NavLink({
   children,
@@ -37,41 +40,20 @@ export function PrivacyDialog() {
       <DialogTrigger asChild>
         <NavLink>Конфиденциальность</NavLink>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Политика конфиденциальности</DialogTitle>
-          <DialogDescription>
-            Ваша конфиденциальность важна для нас. Пожалуйста, внимательно
-            ознакомьтесь с нашей политикой.
-          </DialogDescription>
+          <DialogTitle>{privacyContent.title}</DialogTitle>
+          <DialogDescription>{privacyContent.description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 text-sm">
-          <div>
-            <h3 className="font-semibold mb-2">Обмен содержанием курса</h3>
-            <p className="text-muted-foreground">
-              Все материалы курса, включая видео, PDF, тесты и другое
-              содержание, предназначены исключительно для личного использования.
-              Распространение, передача или воспроизведение содержания курса без
-              явного письменного разрешения запрещено. Ваш аккаунт может быть
-              прекращен, если вы нарушите эту политику.
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Сбор данных</h3>
-            <p className="text-muted-foreground">
-              Мы собираем информацию, необходимую для предоставления наших
-              услуг, включая ваш прогресс обучения, результаты тестов и данные
-              аккаунта. Мы никогда не продаем ваши личные данные третьим лицам.
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Безопасность аккаунта</h3>
-            <p className="text-muted-foreground">
-              Вы несете ответственность за сохранение конфиденциальности ваших
-              учетных данных. Передача вашего аккаунта другим лицам является
-              нарушением наших условий.
-            </p>
-          </div>
+        <div className="space-y-4 text-sm pr-2">
+          {privacyContent.sections.map((section, index) => (
+            <div key={index}>
+              <h3 className="font-semibold mb-2">{section.heading}</h3>
+              <p className="text-muted-foreground whitespace-pre-line">
+                {section.content}
+              </p>
+            </div>
+          ))}
         </div>
       </DialogContent>
     </Dialog>
@@ -84,36 +66,20 @@ export function TermsDialog() {
       <DialogTrigger asChild>
         <NavLink>Условия</NavLink>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Условия обслуживания</DialogTitle>
-          <DialogDescription>
-            Используя Info Academy, вы соглашаетесь с этими условиями.
-          </DialogDescription>
+          <DialogTitle>{termsContent.title}</DialogTitle>
+          <DialogDescription>{termsContent.description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 text-sm">
-          <div>
-            <h3 className="font-semibold mb-2">
-              Ограничения использования курсов
-            </h3>
-            <p className="text-muted-foreground">
-              Все курсы и материалы, предоставленные академией, предназначены
-              только для индивидуального некоммерческого использования. Вы не
-              можете передавать, перепродавать, распространять или делать
-              доступным любое содержание курса другим лицам. Это включает, но не
-              ограничивается: загрузку видео, PDF материалов, содержание тестов
-              и сертификаты.
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Условия аккаунта</h3>
-            <p className="text-muted-foreground">
-              Каждый аккаунт предназначен только для одного человека. Передача
-              аккаунта строго запрещена и может привести к немедленному
-              прекращению без возврата средств. Вы должны предоставлять точную
-              информацию при создании аккаунта.
-            </p>
-          </div>
+        <div className="space-y-4 text-sm pr-2">
+          {termsContent.sections.map((section, index) => (
+            <div key={index}>
+              <h3 className="font-semibold mb-2">{section.heading}</h3>
+              <p className="text-muted-foreground whitespace-pre-line">
+                {section.content}
+              </p>
+            </div>
+          ))}
         </div>
       </DialogContent>
     </Dialog>

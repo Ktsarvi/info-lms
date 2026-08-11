@@ -18,6 +18,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Info Academy",
   description: "Info Academy - Online Learning Platform",
+  icons: {
+    icon: "/ia_logo.png",
+  },
 };
 
 export default function RootLayout({
