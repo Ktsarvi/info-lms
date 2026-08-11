@@ -45,6 +45,11 @@ const LoginPage = () => {
       style={{ background: "#F8FAFC" }}
     >
       <div className="w-full max-w-md">
+        <img
+          src="/ia_logo.png"
+          alt="Info Academy logo"
+          className="h-24 w-24 object-contain mx-auto mb-4"
+        />
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: "#1E3A5F" }}>
             Вход в Info Academy

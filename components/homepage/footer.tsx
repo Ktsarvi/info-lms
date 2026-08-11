@@ -13,11 +13,14 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <span
-            className="text-base font-semibold"
-            style={{ color: "#1E3A5F" }}
-          >
-            Info Academy
+          <span className="flex items-center gap-2">
+            <img src="/ia_logo.png" alt="" className="h-8 w-8 object-contain" />
+            <span
+              className="text-base font-semibold"
+              style={{ color: "#1E3A5F" }}
+            >
+              Info Academy
+            </span>
           </span>
         </div>
 

@@ -132,7 +132,7 @@ export default function LecturePage() {
         <aside
           className="hidden md:flex flex-col w-72 shrink-0 border-r"
           style={{
-            background: "white",
+            background: "#F8FAFC",
             borderColor: "#E2E8F0",
             minHeight: "calc(100vh - 5rem)",
           }}

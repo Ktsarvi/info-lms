@@ -33,11 +33,18 @@ const Navbar = ({ user }: NavbarProps) => {
           {/* Logo — left */}
           <div className="flex items-center gap-2">
             <Link href="/">
-              <span
-                className="text-2xl font-semibold tracking-tight cursor-pointer"
-                style={{ color: "#1E3A5F" }}
-              >
-                Info Academy
+              <span className="flex items-center gap-2 cursor-pointer">
+                <img
+                  src="/ia_logo.png"
+                  alt=""
+                  className="h-12 w-12 object-contain"
+                />
+                <span
+                  className="text-2xl font-semibold tracking-tight"
+                  style={{ color: "#1E3A5F" }}
+                >
+                  Info Academy
+                </span>
               </span>
             </Link>
           </div>
