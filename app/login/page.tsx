@@ -2,15 +2,30 @@
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import React from "react";
+import React, { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+import { translateSupabaseError } from "@/utils/supabase/error-translations";
 
-const LoginPage = () => {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [errors, setErrors] = React.useState<{
     email?: string;
     password?: string;
+    general?: string;
   }>({});
+  const [loading, setLoading] = React.useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      setErrors({ general: translateSupabaseError(errorParam) });
+    }
+  }, [searchParams]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -31,11 +46,36 @@ const LoginPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      // Handle login logic here
-      console.log("Login:", { email, password });
+      setLoading(true);
+      setErrors({});
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrors({ general: translateSupabaseError(error.message) });
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_subscribed, subscription_expires_at")
+        .eq("id", data.user.id)
+        .single();
+
+      const isActive =
+        !!profile?.is_subscribed &&
+        (!profile.subscription_expires_at ||
+          new Date(profile.subscription_expires_at) > new Date());
+
+      router.push(isActive ? "/courses" : "/pricing");
+      router.refresh();
     }
   };
 
@@ -106,9 +146,16 @@ const LoginPage = () => {
               type="submit"
               className="w-full h-12 text-lg font-semibold text-white"
               style={{ background: "#3B82F6", border: "none" }}
+              disabled={loading}
             >
-              Войти
+              {loading ? "Вход..." : "Войти"}
             </Button>
+
+            {errors.general && (
+              <p className="text-red-500 text-sm text-center">
+                {errors.general}
+              </p>
+            )}
 
             <div className="text-center text-sm" style={{ color: "#64748B" }}>
               Нет аккаунта?{" "}
@@ -135,6 +182,12 @@ const LoginPage = () => {
       </div>
     </div>
   );
-};
+}
 
-export default LoginPage;
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}

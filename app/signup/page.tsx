@@ -3,6 +3,9 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import React from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+import { translateSupabaseError } from "@/utils/supabase/error-translations";
 
 const SignupPage = () => {
   const [name, setName] = React.useState("");
@@ -16,7 +19,11 @@ const SignupPage = () => {
     email?: string;
     password?: string;
     confirmPassword?: string;
+    general?: string;
   }>({});
+  const [loading, setLoading] = React.useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   const validateForm = () => {
     const newErrors: {
@@ -61,11 +68,34 @@ const SignupPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      // Handle signup logic here
-      console.log("Signup:", { name, surname, email, password });
+      setLoading(true);
+      setErrors({});
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            surname,
+            full_name: `${name} ${surname}`,
+          },
+        },
+      });
+
+      if (error) {
+        setErrors({ general: translateSupabaseError(error.message) });
+        setLoading(false);
+      } else if (!data.session) {
+        // No session returned = email confirmation required
+        router.push("/check-email");
+      } else {
+        // Confirmation somehow already satisfied (rare) — proceed normally
+        router.push("/pricing");
+      }
     }
   };
 
@@ -202,9 +232,16 @@ const SignupPage = () => {
               type="submit"
               className="w-full h-12 text-lg font-semibold text-white"
               style={{ background: "#3B82F6", border: "none" }}
+              disabled={loading}
             >
-              Зарегистрироваться
+              {loading ? "Регистрация..." : "Зарегистрироваться"}
             </Button>
+
+            {errors.general && (
+              <p className="text-red-500 text-sm text-center">
+                {errors.general}
+              </p>
+            )}
 
             <div className="text-center text-sm" style={{ color: "#64748B" }}>
               Уже есть аккаунт?{" "}

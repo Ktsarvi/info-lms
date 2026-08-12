@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { createClient } from "@/utils/supabase/client";
 
 import Navbar from "@/components/homepage/navbar";
 import { StatsBar } from "@/components/courses/stats-bar";
@@ -18,17 +19,55 @@ import {
   FilterType,
 } from "@/components/courses/data";
 
-// Mock logged-in user — swap this with real auth data when available
-const CURRENT_USER = {
-  name: "Алибек Искаков",
-  email: "[EMAIL_ADDRESS]",
-  initials: "АИ",
-};
+interface NavbarUser {
+  name: string;
+  email: string;
+  initials: string;
+}
 
 export default function CoursesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [activeTab, setActiveTab] = useState<"lessons" | "exams">("lessons");
+  const [user, setUser] = useState<NavbarUser | null>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getUserData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const userData: NavbarUser = {
+          name:
+            user.user_metadata?.full_name || user.user_metadata?.name || "User",
+          email: user.email || "",
+          initials: (
+            user.user_metadata?.name?.[0] ||
+            user.email?.[0] ||
+            "U"
+          ).toUpperCase(),
+        };
+        setUser(userData);
+      } else {
+        // Shouldn't happen — middleware should have already redirected.
+        // Fallback only, in case of a race/edge case.
+        window.location.href = "/login";
+      }
+    };
+    getUserData();
+  }, [supabase]);
+
+  if (!user) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "#F8FAFC" }}
+      >
+        <p>Загрузка...</p>
+      </div>
+    );
+  }
 
   const filtered = lessons.filter((l) => {
     const matchesFilter = filter === "all" || l.status === filter;
@@ -56,7 +95,7 @@ export default function CoursesPage() {
   return (
     <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
       {/* Shared navbar — user prop swaps "Начать" for the profile dropdown */}
-      <Navbar user={CURRENT_USER} />
+      <Navbar user={user} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-0.5 pt-24 pb-12">
         {/* Page Header */}

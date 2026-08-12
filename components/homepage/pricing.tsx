@@ -1,6 +1,11 @@
+"use client";
+
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+import { useEffect, useState } from "react";
 
 const features = [
   "Доступ ко всем курсам",
@@ -12,6 +17,28 @@ const features = [
 ];
 
 const Pricing = () => {
+  const router = useRouter();
+  const supabase = createClient();
+  const [loading, setLoading] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+    };
+    checkAuth();
+  }, [supabase]);
+
+  const handleSubscribe = async () => {
+    setLoading(true);
+    // In a real app, you would integrate with a payment provider here
+    // For now, we'll just redirect to courses
+    router.push("/courses");
+  };
+
   return (
     <section
       id="pricing"
@@ -84,14 +111,29 @@ const Pricing = () => {
               </span>
             </div>
 
-            <Link href="/login">
+            {isAuthenticated ? (
               <Button
+                onClick={handleSubscribe}
                 className="w-full font-medium"
                 style={{ background: "#3B82F6", color: "#fff", border: "none" }}
+                disabled={loading}
               >
-                Подписаться
+                {loading ? "Обработка..." : "Подписаться"}
               </Button>
-            </Link>
+            ) : (
+              <Link href="/login">
+                <Button
+                  className="w-full font-medium"
+                  style={{
+                    background: "#3B82F6",
+                    color: "#fff",
+                    border: "none",
+                  }}
+                >
+                  Войти для подписки
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
