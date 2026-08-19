@@ -1,20 +1,26 @@
 import { BarChart3, CheckCircle2, PlayCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { lessons } from "./data";
 
-export function StatsBar() {
-  const completedCount = lessons.filter((l) => l.status === "completed").length;
-  const inProgressCount = lessons.filter(
-    (l) => l.status === "in-progress",
-  ).length;
-  const overallProgress = Math.round((completedCount / lessons.length) * 100);
+interface StatsBarProps {
+  totalTopics?: number;
+  completedCount?: number;
+  inProgressCount?: number;
+}
+
+export function StatsBar({
+  totalTopics = 15,
+  completedCount = 0,
+  inProgressCount = 0,
+}: StatsBarProps) {
+  const overallProgress =
+    totalTopics > 0 ? Math.round((completedCount / totalTopics) * 100) : 0;
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
       {[
         {
           label: "Пройдено уроков",
-          value: `${completedCount}/15`,
+          value: `${completedCount}/${totalTopics}`,
           icon: CheckCircle2,
           color: "#10B981",
         },

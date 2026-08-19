@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
   Card,
   CardContent,
@@ -10,16 +9,27 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { statusConfig } from "./statusConfig";
-import { Lesson } from "./data";
+import type { TopicWithSubLessons } from "@/types/courses";
+import type { LessonStatus } from "./data";
 
-export function LessonCard({ lesson }: { lesson: Lesson }) {
-  const { label, icon: StatusIcon, color } = statusConfig[lesson.status];
-  const isCompleted = lesson.status === "completed";
-  const isInProgress = lesson.status === "in-progress";
+interface LessonCardProps {
+  topic: TopicWithSubLessons;
+  status?: LessonStatus;
+  progress?: number;
+}
+
+export function LessonCard({
+  topic,
+  status = "not-started",
+  progress = 0,
+}: LessonCardProps) {
+  const { label, icon: StatusIcon, color } = statusConfig[status];
+  const isCompleted = status === "completed";
+  const isInProgress = status === "in-progress";
 
   return (
     <Card
-      id={`lesson-card-${lesson.id}`}
+      id={`lesson-card-${topic.id}`}
       className="border transition-colors hover:border-[#1E3A5F]/30"
     >
       <div className="h-1 w-full rounded-t-xl" style={{ background: color }} />
@@ -28,10 +38,10 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              {String(lesson.lessonNumber).padStart(2, "0")}
+              {String(topic.order_index).padStart(2, "0")}
             </span>
             <CardTitle className="text-sm font-medium leading-tight text-[#1E3A5F]">
-              {lesson.title}
+              {topic.title}
             </CardTitle>
           </div>
           <Badge
@@ -46,29 +56,18 @@ export function LessonCard({ lesson }: { lesson: Lesson }) {
       </CardHeader>
 
       <CardContent className="pb-2">
-        {(isCompleted || isInProgress) && (
-          <div>
-            {isInProgress && (
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Прогресс</span>
-                <span style={{ color }}>{lesson.progress}%</span>
-              </div>
-            )}
-            <Progress
-              value={isCompleted ? 100 : lesson.progress}
-              className="h-1"
-              style={{ "--progress-color": color } as React.CSSProperties}
-            />
-          </div>
-        )}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>{topic.sub_lesson_count} подтем(ы)</span>
+          {isInProgress && <span style={{ color }}>{progress}%</span>}
+        </div>
       </CardContent>
 
       <CardFooter className="pt-3">
-        <Link href={`/courses/${lesson.id}`} className="w-full">
+        <Link href={`/courses/${topic.slug}`} className="w-full">
           <Button
             size="sm"
-            id={`lesson-btn-${lesson.id}`}
-            className="h-7 w-full text-xs px-3 text-white"
+            id={`lesson-btn-${topic.id}`}
+            className="h-7 w-full text-xs px-3 text-white cursor-pointer"
             style={{ background: color, border: "none" }}
           >
             {isCompleted ? "Повторить" : isInProgress ? "Продолжить" : "Начать"}
