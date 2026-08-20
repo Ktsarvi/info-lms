@@ -87,7 +87,7 @@ export function CoursesClientPage({
         <StatsBar
           totalTopics={totalCount}
           completedCount={completedCount}
-          inProgressCount={0}
+          inProgressCount={inProgressCount}
         />
 
         {/* Overall Progress Banner */}
