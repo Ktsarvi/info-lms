@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "Info Academy",
   description: "Info Academy - Online Learning Platform",
   icons: {
-    icon: "/ia_logo.png",
+    icon: "/ia_logo_no_bg.png",
   },
 };
 

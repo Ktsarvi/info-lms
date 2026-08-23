@@ -14,7 +14,7 @@ const Footer = () => {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-2">
-            <img src="/ia_logo.png" alt="" className="h-8 w-8 object-contain" />
+            <img src="/ia_logo_no_bg.png" alt="" className="h-8 w-8 object-contain" />
             <span
               className="text-base font-semibold"
               style={{ color: "#1E3A5F" }}

@@ -109,7 +109,7 @@ const SignupPage = () => {
     >
       <div className="w-full max-w-md">
         <img
-          src="/ia_logo.png"
+          src="/ia_logo_no_bg.png"
           alt="Info Academy logo"
           className="h-24 w-24 object-contain mx-auto mb-4"
         />

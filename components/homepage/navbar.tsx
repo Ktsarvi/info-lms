@@ -91,7 +91,7 @@ const Navbar = ({ user }: NavbarProps) => {
             <Link href="/">
               <span className="flex items-center gap-2 cursor-pointer">
                 <img
-                  src="/ia_logo.png"
+                  src="/ia_logo_no_bg.png"
                   alt=""
                   className="h-12 w-12 object-contain"
                 />

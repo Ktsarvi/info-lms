@@ -31,8 +31,8 @@ const features = [
   },
   {
     icon: Award,
-    title: "Проверенные материалы",
-    desc: "Материалы от экспертов",
+    title: "Экзаменационные задания",
+    desc: "Задания по реальным экзаменам",
   },
 ];
 
@@ -75,9 +75,9 @@ const HeroFeatures = () => {
 
           <div className="grid grid-cols-4 gap-4">
             {[
+              { num: "15", label: "Разделов" },
               { num: "50+", label: "Курсов" },
-              { num: "2000+", label: "Заданий" },
-              { num: "5+", label: "Книг" },
+              { num: "1000+", label: "Заданий" },
             ].map(({ num, label }) => (
               <div key={label}>
                 <div
