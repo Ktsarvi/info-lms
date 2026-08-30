@@ -51,7 +51,14 @@ export function TopicDetailClient({
     const list: SelectedFile[] = [];
 
     topic.sub_lessons.forEach((sl) => {
-      sl.sub_lesson_files.forEach((f) => {
+      // Sort files: theory files come first, then test files
+      const sortedFiles = [...sl.sub_lesson_files].sort((a, b) => {
+        if (a.file_type === "theory" && b.file_type !== "theory") return -1;
+        if (a.file_type !== "theory" && b.file_type === "theory") return 1;
+        return 0;
+      });
+
+      sortedFiles.forEach((f) => {
         const typeLabel = f.file_type === "theory" ? "Теория" : "Тест";
         list.push({
           id: f.id,

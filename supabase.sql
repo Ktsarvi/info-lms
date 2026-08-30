@@ -223,8 +223,8 @@ select using (
 grant usage on schema public to service_role;
 grant all on all tables in schema public to service_role;
 grant all on all sequences in schema public to service_role;
-grant select,
-  update on public.profiles to authenticated;
+grant select on public.profiles to authenticated;
+grant update (email, full_name) on public.profiles to authenticated;
 grant select on public.topics to authenticated;
 grant select on public.sub_lessons to authenticated;
 grant select on public.sub_lesson_files to authenticated;

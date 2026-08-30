@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       description: `Info Academy subscription (${plan})`,
     });
 
-    if (!order?.id || !order?.hppUrl) {
+    if (!order?.id || !order?.hppUrl || !order?.password) {
       throw new Error("Invalid response from payment gateway");
     }
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (dbError) {
       console.error("Database insert error:", dbError);
       return NextResponse.json(
-        { error: "Failed to record payment in database: " + dbError.message },
+        { error: "Failed to record payment in database" },
         { status: 500 },
       );
     }
@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     console.error("Create payment order error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to create payment order";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create payment order" },
+      { status: 500 },
+    );
   }
 }

@@ -31,6 +31,21 @@ async function handleCallback(req: NextRequest) {
     const { order } = await getOrderDetails(orderId);
 
     if (order?.status === "FullyPaid" || order?.status === "Approved") {
+      // Atomically claim the payment by updating status only if still pending
+      const { data: updatedPayment, error: claimError } = await supabase
+        .from("payments")
+        .update({ status: "paid" })
+        .eq("kapital_order_id", orderId)
+        .eq("status", "pending")
+        .select()
+        .single();
+
+      if (claimError || !updatedPayment) {
+        // Payment was already processed or failed to claim
+        console.error("Payment claim error:", claimError);
+        return NextResponse.redirect(new URL("/pricing?error=failed", req.url));
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("subscription_expires_at")
@@ -44,7 +59,7 @@ async function handleCallback(req: NextRequest) {
           : new Date();
       base.setMonth(base.getMonth() + payment.plan_months);
 
-      await supabase
+      const { error: profileUpdateError } = await supabase
         .from("profiles")
         .update({
           is_subscribed: true,
@@ -52,10 +67,10 @@ async function handleCallback(req: NextRequest) {
         })
         .eq("id", payment.user_id);
 
-      await supabase
-        .from("payments")
-        .update({ status: "paid" })
-        .eq("kapital_order_id", orderId);
+      if (profileUpdateError) {
+        console.error("Profile update error:", profileUpdateError);
+        return NextResponse.redirect(new URL("/pricing?error=failed", req.url));
+      }
 
       return NextResponse.redirect(new URL("/courses?success=1", req.url));
     }

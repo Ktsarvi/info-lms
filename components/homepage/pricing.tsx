@@ -91,12 +91,14 @@ const PricingInner = () => {
       const data = await res.json();
 
       if (!res.ok || !data.redirectUrl) {
-        let msg = data.error || "Не удалось создать заказ на оплату.";
-        if (msg === "ApeError") {
-          msg =
-            "Ошибка платежного шлюза Kapital Bank (ApeError). Проверьте учетные данные мерчанта в .env.local.";
+        const originalError =
+          data.error || "Не удалось создать заказ на оплату.";
+        if (originalError === "ApeError") {
+          console.error("Payment gateway ApeError:", originalError);
+          setError("Ошибка платежного шлюза. Пожалуйста, попробуйте снова.");
+        } else {
+          setError(originalError);
         }
-        setError(msg);
         setLoading(false);
         return;
       }
