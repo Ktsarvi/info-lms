@@ -236,14 +236,6 @@ const PricingInner = () => {
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
-                  <Button
-                    onClick={handleSubscribe}
-                    variant="outline"
-                    className="w-full font-medium text-xs text-slate-500 hover:text-slate-700"
-                    disabled={loading}
-                  >
-                    {loading ? "Обработка..." : "Продлить подписку на 1 месяц"}
-                  </Button>
                 </div>
               ) : (
                 <Button
