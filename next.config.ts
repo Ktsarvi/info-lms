@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Allow localtunnel host for cross-origin HMR in dev
+  allowedDevOrigins: ["*.loca.lt", "localhost:3000"],
   // Turbopack config for Next.js 16
   turbopack: {},
   // Webpack fallback if built with --webpack flag
