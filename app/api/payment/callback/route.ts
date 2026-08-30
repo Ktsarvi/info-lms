@@ -28,7 +28,7 @@ async function handleCallback(req: NextRequest) {
     );
 
   try {
-    const { order } = await getOrderDetails(orderId);
+    const { order } = await getOrderDetails(orderId, { tokenDetailLevel: 2 });
 
     if (order?.status === "FullyPaid" || order?.status === "Approved") {
       // Atomically claim the payment by updating status only if still pending
@@ -59,11 +59,16 @@ async function handleCallback(req: NextRequest) {
           : new Date();
       base.setMonth(base.getMonth() + payment.plan_months);
 
+      const storedTokenId = order.storedTokens?.[0]?.id ?? null;
+
       const { error: profileUpdateError } = await supabase
         .from("profiles")
         .update({
           is_subscribed: true,
           subscription_expires_at: base.toISOString(),
+          ...(storedTokenId
+            ? { stored_token_id: storedTokenId, auto_renew: true }
+            : {}),
         })
         .eq("id", payment.user_id);
 
