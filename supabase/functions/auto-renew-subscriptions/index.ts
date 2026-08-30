@@ -6,7 +6,7 @@ const KAPITAL_AUTH =
   btoa(
     `${Deno.env.get("KAPITAL_USERNAME")}:${Deno.env.get("KAPITAL_PASSWORD")}`,
   );
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
 
 async function kapitalFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${KAPITAL_BASE_URL}${path}`, {
