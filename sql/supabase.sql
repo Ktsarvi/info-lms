@@ -7,6 +7,9 @@ create table if not exists profiles (
   full_name text,
   is_subscribed boolean default false,
   subscription_expires_at timestamptz,
+  card_id text,
+  auto_renew boolean not null default true,
+  renewal_attempt_count int not null default 0,
   created_at timestamptz default now()
 );
 
@@ -373,7 +376,6 @@ select
 -- payment
 create table if not exists payments (
   id bigint generated always as identity primary key,
-  kapital_order_id bigint not null unique,
   user_id uuid references auth.users (id) not null,
   amount numeric not null,
   currency text not null default 'AZN',

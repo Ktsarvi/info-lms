@@ -1,40 +1,83 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const KAPITAL_BASE_URL = Deno.env.get("KAPITAL_BASE_URL")!;
-const KAPITAL_AUTH =
-  "Basic " +
-  btoa(
-    `${Deno.env.get("KAPITAL_USERNAME")}:${Deno.env.get("KAPITAL_PASSWORD")}`,
-  );
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
+const EPOINT_BASE_URL = Deno.env.get("EPOINT_BASE_URL")!;
+const EPOINT_PUBLIC_KEY = Deno.env.get("EPOINT_PUBLIC_KEY")!;
+const EPOINT_PRIVATE_KEY = Deno.env.get("EPOINT_PRIVATE_KEY")!;
 
-async function kapitalFetch(path: string, init?: RequestInit) {
-  const res = await fetch(`${KAPITAL_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: KAPITAL_AUTH,
-      ...(init?.headers || {}),
-    },
+// TODO — same unverified endpoint path issue as lib/epoint.ts.
+// Confirm the real path against your dashboard/PHP SDK tomorrow.
+const EXECUTE_PAY_PATH = "/execute-pay"; // placeholder
+
+function signPayload(payload: Record<string, unknown>) {
+  const json = JSON.stringify(payload);
+  const data = btoa(json);
+  const sgnString = EPOINT_PRIVATE_KEY + data + EPOINT_PRIVATE_KEY;
+  // Deno has no built-in sha1+base64 one-liner — use the Web Crypto API
+  return { data, sgnString };
+}
+
+async function sha1Base64(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-1", encoder.encode(input));
+  return btoa(String.fromCharCode(...new Uint8Array(digest)));
+}
+
+async function executePay(params: {
+  cardId: string;
+  orderId: string;
+  amount: number;
+  description?: string;
+}) {
+  const payload = {
+    public_key: EPOINT_PUBLIC_KEY,
+    language: "az",
+    card_id: params.cardId,
+    order_id: params.orderId,
+    amount: params.amount,
+    currency: "AZN",
+    description: params.description,
+  };
+
+  const { data, sgnString } = signPayload(payload);
+  const signature = await sha1Base64(sgnString);
+
+  const res = await fetch(`${EPOINT_BASE_URL}${EXECUTE_PAY_PATH}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data, signature }).toString(),
   });
-  const data = await res.json();
-  if (!res.ok || data.errorCode) {
-    throw new Error(
-      data.errorDescription || `Kapital request failed: ${res.status}`,
-    );
+
+  const json = await res.json();
+
+  if (json.status === "error" || json.status === "failed") {
+    throw new Error(json.message || `e-Point request failed: ${res.status}`);
   }
-  return data;
+
+  return json;
 }
 
 Deno.serve(async (req: Request) => {
-  const auth = req.headers.get("Authorization");
-  if (auth !== `Bearer ${SERVICE_ROLE_KEY}`) {
-    return new Response(JSON.stringify({ error: "forbidden" }), { status: 403 });
+  // Authorization check - require expected service-role bearer token or shared secret
+  // This function should also be configured with verify_jwt = true for scheduled invocations
+  const authHeader = req.headers.get("Authorization");
+  const expectedSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!authHeader || !expectedSecret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    });
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+  if (token !== expectedSecret) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    });
   }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    SERVICE_ROLE_KEY,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   const { data: due, error } = await supabase.rpc("get_due_renewals");
@@ -47,57 +90,61 @@ Deno.serve(async (req: Request) => {
   const results = [];
 
   for (const row of due ?? []) {
+    let newPayment: { id: number } | null = null;
     try {
-      const { order } = await kapitalFetch("/order", {
-        method: "POST",
-        body: JSON.stringify({
-          order: {
-            typeRid: "Order_REC",
-            amount: row.amount,
-            currency: "AZN",
-            language: "az",
-            description: "Info Academy auto-renew",
-          },
-        }),
-      });
+      // First, insert a new payments row so we have an order_id to charge against —
+      // same pattern as create-order/route.ts, since e-Point identifies orders by
+      // whatever id we generate, not one it hands back.
+      const { data: paymentData, error: insertError } = await supabase
+        .from("payments")
+        .insert({
+          user_id: row.user_id,
+          amount: row.amount,
+          plan_months: row.plan_months,
+          status: "pending",
+        })
+        .select()
+        .single();
 
-      const passwordQuery = encodeURIComponent(order.password);
-      await kapitalFetch(
-        `/order/${order.id}/set-src-token?password=${passwordQuery}`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            order: { initiationEnvKind: "Server" },
-            token: { storedId: row.stored_token_id },
-          }),
-        },
-      );
+      if (insertError || !paymentData) {
+        throw new Error(
+          insertError?.message || "Failed to create renewal payment row",
+        );
+      }
 
-      await kapitalFetch(`/order/${order.id}/exec-tran`, {
-        method: "POST",
-        body: JSON.stringify({
-          tran: { phase: "Single", conditions: { cofUsage: "Recurring" } },
-        }),
-      });
+      newPayment = paymentData;
 
-      // Verify the payment was successful by checking order status
-      const { order: updatedOrder } = await kapitalFetch(
-        `/order/${order.id}?tranDetailLevel=2`,
-        {
-          method: "GET",
-        },
-      );
+      let chargeResult;
+      try {
+        chargeResult = await executePay({
+          cardId: row.card_id,
+          orderId: String(newPayment!.id),
+          amount: row.amount,
+          description: "Info Academy auto-renew",
+        });
+      } catch (chargeError) {
+        console.error("executePay failed during auto-renewal:", chargeError);
+        await supabase
+          .from("payments")
+          .update({ status: "failed" })
+          .eq("id", newPayment!.id);
+        // Payment is marked as failed, fall through to catch block for attempt counting
+        throw chargeError;
+      }
 
-      if (
-        updatedOrder.status !== "FullyPaid" &&
-        updatedOrder.status !== "Approved"
-      ) {
-        throw new Error(`Payment failed with status: ${updatedOrder.status}`);
+      if (chargeResult.status !== "success") {
+        await supabase
+          .from("payments")
+          .update({ status: "failed" })
+          .eq("id", newPayment!.id);
+        throw new Error(
+          chargeResult.message || "Charge did not return success",
+        );
       }
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("subscription_expires_at")
+        .select("subscription_expires_at, renewal_attempt_count")
         .eq("id", row.user_id)
         .single();
 
@@ -108,7 +155,7 @@ Deno.serve(async (req: Request) => {
           : new Date();
       base.setMonth(base.getMonth() + row.plan_months);
 
-      const { error: profileError } = await supabase
+      const { error: profileUpdateError } = await supabase
         .from("profiles")
         .update({
           is_subscribed: true,
@@ -116,59 +163,59 @@ Deno.serve(async (req: Request) => {
           renewal_attempt_count: 0,
         })
         .eq("id", row.user_id);
-      if (profileError) {
-        // The card is already charged. Persist durable state before preventing retry.
-        const attempts = (row.renewal_attempt_count ?? 0) + 1;
-        
-        // Disable auto-renew and increment attempts to prevent retry loops
+
+      if (profileUpdateError) {
+        // Charge succeeded but profile write failed - disable auto_renew and record charged-but-not-applied state
+        console.error(
+          "Profile update failed after successful charge:",
+          profileUpdateError,
+        );
         await supabase
           .from("profiles")
-          .update({ auto_renew: false, renewal_attempt_count: attempts })
+          .update({
+            auto_renew: false,
+            renewal_attempt_count: (profile?.renewal_attempt_count ?? 0) + 1,
+          })
           .eq("id", row.user_id);
-        
-        // Create reconciliation record for manual recovery
-        await supabase.from("reconciliation_records").insert({
-          user_id: row.user_id,
-          kapital_order_id: order.id,
-          amount: row.amount,
-          plan_months: row.plan_months,
-          reason: "profile_update_failed_after_charge",
-          metadata: { profile_error: profileError.message },
-        });
-        
+        // Do not mark payment as paid - leave it pending so it can be reviewed
         results.push({
           user_id: row.user_id,
-          status: "charged_but_not_applied",
-          order_id: order.id,
-          error: profileError.message,
+          status: "charge_success_profile_failed",
+          error: profileUpdateError.message,
         });
-        continue;
+        continue; // Stop processing this profile so it cannot be selected for another renewal attempt
       }
 
-      const { error: paymentError } = await supabase.from("payments").insert({
-        kapital_order_id: order.id,
-        user_id: row.user_id,
-        amount: row.amount,
-        plan_months: row.plan_months,
-        status: "paid",
-      });
-      if (paymentError) {
-        console.error("Renewal payment insert failed", order.id, paymentError);
-        // Profile is renewed but payment record missing - treat as partial
-        results.push({
-          user_id: row.user_id,
-          status: "partial_renewal_payment_pending",
-          order_id: order.id,
-          error: paymentError.message,
-        });
-        continue;
-      }
+      await supabase
+        .from("payments")
+        .update({ status: "paid" })
+        .eq("id", newPayment!.id);
 
       results.push({ user_id: row.user_id, status: "renewed" });
     } catch (err) {
+      // This catch block handles errors from executePay (payment already marked as failed in try block)
+      // and other unexpected errors (payment will be marked as failed here)
+      const error = err as Error;
+      const isExecutePayError = error.message.includes(
+        "executePay failed during auto-renewal",
+      );
+
+      if (newPayment && !isExecutePayError) {
+        await supabase
+          .from("payments")
+          .update({ status: "failed" })
+          .eq("id", newPayment.id);
+      } else if (!newPayment) {
+        // Payment insert failed, skip payment update
+        console.error(
+          "Payment insert failed, cannot mark as failed:",
+          error.message,
+        );
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
-        .select("renewal_attempt_count")
+        .select("renewal_attempt_count, auto_renew")
         .eq("id", row.user_id)
         .single();
 
@@ -183,7 +230,7 @@ Deno.serve(async (req: Request) => {
           user_id: row.user_id,
           status: "failed_final",
           attempts,
-          error: (err as Error).message,
+          error: error.message,
         });
       } else {
         await supabase
@@ -194,7 +241,7 @@ Deno.serve(async (req: Request) => {
           user_id: row.user_id,
           status: "failed_retry",
           attempts,
-          error: (err as Error).message,
+          error: error.message,
         });
       }
     }
