@@ -126,7 +126,7 @@ const PricingInner = () => {
         <div className="flex justify-center mb-4">
           <Image
             src="/ia_logo_no_bg.png"
-            alt="Info Academy logo"
+            alt=" "
             width={96}
             height={96}
             className="h-24 w-24 object-contain"
