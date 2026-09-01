@@ -165,19 +165,26 @@ export async function createOrder(
 ): Promise<CreateOrderPayload> {
   console.log("DEBUG: createOrder called with", params);
   
-  const res = await payriffRequest<CreateOrderPayload>("v3", "orders", {
+  const requestBody: Record<string, unknown> = {
     amount: params.amount,
     language: params.language ?? "AZ",
     currency: params.currency ?? "AZN",
     description: params.description,
     callbackUrl: params.callbackUrl,
-    cardSave: params.cardSave ?? false,
     operation: params.operation ?? "PURCHASE",
-    // Payriff expects approveURL, cancelURL, declineURL in some versions
-    approveURL: params.approveURL || params.callbackUrl,
-    cancelURL: params.cancelURL || params.callbackUrl,
-    declineURL: params.declineURL || params.callbackUrl,
-  });
+  };
+  
+  // Only include cardSave if it's true (merchant account must have autopay enabled)
+  if (params.cardSave === true) {
+    requestBody.cardSave = true;
+  }
+  
+  // Only include approveURL, cancelURL, declineURL if they're provided
+  if (params.approveURL) requestBody.approveURL = params.approveURL;
+  if (params.cancelURL) requestBody.cancelURL = params.cancelURL;
+  if (params.declineURL) requestBody.declineURL = params.declineURL;
+  
+  const res = await payriffRequest<CreateOrderPayload>("v3", "orders", requestBody);
   
   console.log("DEBUG: Payriff response structure:", { 
     code: res.code, 

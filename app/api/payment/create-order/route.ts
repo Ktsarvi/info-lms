@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         amount: selected.amount,
         description: `Info Academy subscription (${plan})`,
         callbackUrl,
-        cardSave: true, // saves the card as a side effect of this real charge
+        cardSave: false, // Disabled since autopay is not enabled for this merchant account
         operation: "PURCHASE",
         language: "AZ",
         currency: "AZN",
