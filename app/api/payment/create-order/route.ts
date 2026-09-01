@@ -72,6 +72,11 @@ export async function POST(req: NextRequest) {
       });
     } catch (orderError) {
       console.error("Payriff createOrder failed:", orderError);
+      console.error("Payriff error details:", {
+        error: orderError,
+        message: orderError instanceof Error ? orderError.message : String(orderError),
+        stack: orderError instanceof Error ? orderError.stack : undefined,
+      });
       await supabase
         .from("payments")
         .update({ status: "failed" })
