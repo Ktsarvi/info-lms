@@ -163,6 +163,8 @@ export type OrderInfoPayload = {
 export async function createOrder(
   params: CreateOrderParams
 ): Promise<CreateOrderPayload> {
+  console.log("DEBUG: createOrder called with", params);
+  
   const res = await payriffRequest<CreateOrderPayload>("v3", "orders", {
     amount: params.amount,
     language: params.language ?? "AZ",
@@ -177,7 +179,13 @@ export async function createOrder(
     declineURL: params.declineURL || params.callbackUrl,
   });
   
-  console.log("Payriff createOrder response:", JSON.stringify(res, null, 2));
+  console.log("DEBUG: Payriff response structure:", { 
+    code: res.code, 
+    message: res.message, 
+    hasPayload: !!res.payload,
+    payloadKeys: res.payload ? Object.keys(res.payload) : [],
+    fullPayload: res.payload 
+  });
   
   if (!res.payload?.orderId || !res.payload?.paymentUrl) {
     throw new PayriffError(
