@@ -151,7 +151,8 @@ export type OrderInfoPayload = {
 /**
  * Creates a new order/payment. Redirect the customer to payload.paymentUrl.
  * Set cardSave: true to store the card as a side effect of this real charge.
-  const url = `${PAYRIFF_BASE_URL}/api/v3/orders/${encodeURIComponent(orderId)}`;export async function createOrder(
+ */
+export async function createOrder(
   params: CreateOrderParams
 ): Promise<CreateOrderPayload> {
   const res = await payriffRequest<CreateOrderPayload>("v3", "orders", {
@@ -170,7 +171,8 @@ export type OrderInfoPayload = {
       res.internalMessage ?? null,
     );
   }
-  return res.payload;}
+  return res.payload;
+}
 
 /**
  * Charges a previously saved card (cardUuid) without redirecting the user.
