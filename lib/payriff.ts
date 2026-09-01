@@ -28,6 +28,8 @@ async function payriffRequest<T>(
 ): Promise<PayriffResponse<T>> {
   const url = `${PAYRIFF_BASE_URL}/api/${version}/${method}`;
 
+  console.log(`Payriff request: ${httpMethod} ${url}`, { body });
+
   const res = await fetch(url, {
     method: httpMethod,
     headers: {
@@ -39,6 +41,8 @@ async function payriffRequest<T>(
   });
 
   const text = await res.text();
+  console.log(`Payriff raw response (${res.status}):`, text.slice(0, 1000));
+  
   let data: PayriffResponse<T>;
   try {
     data = JSON.parse(text) as PayriffResponse<T>;
@@ -49,6 +53,8 @@ async function payriffRequest<T>(
       text.slice(0, 500),
     );
   }
+
+  console.log(`Payriff parsed response:`, { code: data.code, message: data.message, payload: data.payload });
 
   if (data.code !== "00000" && data.code !== "01000") {
     throw new PayriffError(data.code, data.message, data.internalMessage ?? null);
@@ -164,6 +170,9 @@ export async function createOrder(
     cardSave: params.cardSave ?? false,
     operation: params.operation ?? "PURCHASE",
   });
+  
+  console.log("Payriff createOrder response:", JSON.stringify(res, null, 2));
+  
   if (!res.payload?.orderId || !res.payload?.paymentUrl) {
     throw new PayriffError(
       res.code,
