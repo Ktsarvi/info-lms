@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       console.log("DEBUG: Payriff order status:", orderInfo.paymentStatus);
       
       if (isPaymentSuccessful(orderInfo.paymentStatus)) {
+        // Payment was successful - grant subscription
         const cardUuid = orderInfo.transactions?.[0]?.cardDetails?.uuid ?? null;
         const transactionId = orderInfo.transactions?.[0]?.uuid ?? null;
         
@@ -65,7 +66,20 @@ export async function GET(req: NextRequest) {
         if (!rpcError) {
           console.log("DEBUG: Payment updated to paid via GET callback");
           return NextResponse.redirect(new URL("/courses?success=1", req.url));
+        } else {
+          console.error("DEBUG: Failed to update payment to paid:", rpcError);
         }
+      } else if (isPaymentTerminalFailure(orderInfo.paymentStatus)) {
+        // Payment failed - mark as failed
+        await supabase
+          .from("payments")
+          .update({ status: "failed" })
+          .eq("id", payment.id);
+        console.log("DEBUG: Payment marked as failed");
+        return NextResponse.redirect(new URL("/pricing?error=payment_failed", req.url));
+      } else {
+        // Payment still processing/non-final - leave as pending
+        console.log("DEBUG: Payment still processing, leaving as pending");
       }
     } catch (error) {
       console.error("DEBUG: Failed to check payment status in GET callback:", error);
