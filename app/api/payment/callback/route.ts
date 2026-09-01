@@ -46,13 +46,18 @@ export async function POST(req: NextRequest) {
   const supabase = createClient();
 
   try {
+    console.log("DEBUG: Payriff callback POST received");
+    
     // TODO — UNVERIFIED: confirm the real shape of Payriff's callback body
     // in sandbox. Guessing JSON with an orderId field based on their other
     // endpoints' payload shapes (createOrder/autoPay/getOrderInfo all key
     // off "orderId"). If Payriff sends form-encoded data instead, switch
     // this to req.formData() like the old e-Point route did.
     const body = await req.json();
+    console.log("DEBUG: Payriff callback body:", JSON.stringify(body, null, 2));
+    
     const orderId: string | undefined = body?.orderId ?? body?.payload?.orderId;
+    console.log("DEBUG: Extracted orderId:", orderId);
 
     if (!orderId) {
       console.error("Payriff callback: no orderId found in payload", body);
@@ -68,6 +73,8 @@ export async function POST(req: NextRequest) {
       .select("*")
       .eq("payriff_order_id", orderId)
       .single();
+
+    console.log("DEBUG: Found payment:", payment ? { id: payment.id, status: payment.status } : "null");
 
     if (!payment) {
       console.error("Payriff callback: payment not found for orderId", { orderId });
@@ -88,12 +95,19 @@ export async function POST(req: NextRequest) {
     let orderInfo;
     try {
       orderInfo = await getOrderInfo(orderId);
+      console.log("DEBUG: Order info received:", JSON.stringify(orderInfo, null, 2));
     } catch (fetchError) {
       console.error("Payriff callback: getOrderInfo failed", fetchError);
       // Leave payment pending — we couldn't verify, so don't mark it failed
       // or paid based on unverified data. Payriff may retry the callback.
       return NextResponse.json({ status: "error" }, { status: 500 });
     }
+
+    console.log("DEBUG: Payment status check:", { 
+      paymentStatus: orderInfo.paymentStatus,
+      isSuccessful: isPaymentSuccessful(orderInfo.paymentStatus),
+      isTerminalFailure: isPaymentTerminalFailure(orderInfo.paymentStatus)
+    });
 
     if (!isPaymentSuccessful(orderInfo.paymentStatus)) {
       if (!isPaymentTerminalFailure(orderInfo.paymentStatus)) {
@@ -118,6 +132,14 @@ export async function POST(req: NextRequest) {
     const cardUuid = orderInfo.transactions?.[0]?.cardDetails?.uuid ?? null;
     const transactionId = orderInfo.transactions?.[0]?.uuid ?? null;
 
+    console.log("DEBUG: Calling atomic function with:", {
+      p_user_id: payment.user_id,
+      p_payment_id: payment.id,
+      p_plan_months: payment.plan_months,
+      p_card_uuid: cardUuid,
+      p_transaction_id: transactionId,
+    });
+
     // Use atomic Postgres function to grant subscription and mark payment as paid
     const { error: rpcError } = await supabase.rpc("grant_subscription_and_mark_paid", {
       p_user_id: payment.user_id,
@@ -136,6 +158,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "error" }, { status: 500 });
     }
 
+    console.log("DEBUG: Atomic function succeeded, payment marked as paid");
     return NextResponse.json({ status: "success" });
   } catch (error) {
     console.error("Payriff callback processing error:", error);
