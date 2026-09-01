@@ -40,7 +40,7 @@ const faqs = [
 
 const FAQ = () => {
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-8">
+    <section className="py-4 px-4 sm:px-6 lg:px-8" style={{ backgroundColor: "#F8FAFC" }}>
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-12">
           <h2

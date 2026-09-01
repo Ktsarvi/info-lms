@@ -117,12 +117,9 @@ export function ContactDialog() {
               style={{ color: "#3B82F6" }}
             />
             <p className="text-lg font-semibold" style={{ color: "#3B82F6" }}>
-              support@infoacademy.com
+              infoacademysupport@gmail.com
             </p>
-            <p
-              className="text-sm mt-1"
-              style={{ color: "rgba(255,255,255,0.5)" }}
-            >
+            <p className="text-sm mt-1" style={{ color: "#64748B" }}>
               Напишите нам по любым вопросам
             </p>
           </div>
