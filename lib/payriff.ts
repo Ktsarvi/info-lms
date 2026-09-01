@@ -5,11 +5,9 @@ const PAYRIFF_SECRET_KEY = process.env.PAYRIFF_SECRET_KEY!;
 const PAYRIFF_MERCHANT_ID = process.env.PAYRIFF_MERCHANT_ID!;
 
 // Toggle this manually between sandbox and production before deploying.
-// Sandbox: https://api.payriff.com (with sandbox mode enabled via dashboard credentials)
-// Both sandbox and prod use the same base URL structure per Payriff docs — the
-// sandbox/prod distinction is controlled by which merchant/secret key you use,
-// not a different host. If Payriff gives you a distinct sandbox host later, swap it here.
-const PAYRIFF_BASE_URL = "https://api.payriff.com";
+// Based on Payriff docs, the base URL should be https://api.payriff.ae
+// Sandbox vs production is controlled by which merchant/secret key you use
+const PAYRIFF_BASE_URL = "https://api.payriff.ae";
 
 type PayriffResponse<T> = {
   code: string;
@@ -85,6 +83,9 @@ export type CreateOrderParams = {
   operation?: "PURCHASE" | "PRE_AUTH";
   language?: "AZ" | "EN" | "RU";
   currency?: "AZN" | "PKR" | "SAR" | "AED";
+  approveURL?: string;
+  cancelURL?: string;
+  declineURL?: string;
 };
 
 export type CreateOrderPayload = {
@@ -169,6 +170,10 @@ export async function createOrder(
     callbackUrl: params.callbackUrl,
     cardSave: params.cardSave ?? false,
     operation: params.operation ?? "PURCHASE",
+    // Payriff expects approveURL, cancelURL, declineURL in some versions
+    approveURL: params.approveURL || params.callbackUrl,
+    cancelURL: params.cancelURL || params.callbackUrl,
+    declineURL: params.declineURL || params.callbackUrl,
   });
   
   console.log("Payriff createOrder response:", JSON.stringify(res, null, 2));
