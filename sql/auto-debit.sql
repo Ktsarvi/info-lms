@@ -1,33 +1,68 @@
-alter table profiles
-add column if not exists card_id text;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'profiles'
+      AND column_name = 'card_id'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'profiles'
+      AND column_name = 'card_uuid'
+  ) THEN
+    ALTER TABLE profiles
+      RENAME COLUMN card_id TO card_uuid;
+  END IF;
+END
+$$;
 
-alter table profiles
-add column if not exists auto_renew boolean not null default true;
 
-alter table profiles
-add column if not exists renewal_attempt_count int not null default 0;
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS card_uuid text;
 
-create or replace function get_due_renewals () returns table (
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS auto_renew boolean NOT NULL DEFAULT true;
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS renewal_attempt_count int NOT NULL DEFAULT 0;
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS last_renewal_attempt_at timestamptz;
+
+
+CREATE OR REPLACE FUNCTION get_due_renewals()
+RETURNS TABLE (
   user_id uuid,
-  card_id text,
+  card_uuid text,
   amount numeric,
   plan_months int
-) language sql as $$
-select p.id,
-  p.card_id,
-  pay.amount,
-  pay.plan_months
-from profiles p
-  join lateral (
-    select amount,
+)
+LANGUAGE sql
+AS $$
+  SELECT
+    p.id,
+    p.card_uuid,
+    pay.amount,
+    pay.plan_months
+  FROM profiles p
+  JOIN LATERAL (
+    SELECT
+      amount,
       plan_months
-    from payments
-    where payments.user_id = p.id
-      and payments.status = 'paid'
-    order by created_at desc
-    limit 1
-  ) pay on true
-where p.auto_renew = true
-  and p.card_id is not null
-  and p.subscription_expires_at <= now() + interval '1 day'
-  and p.subscription_expires_at > now() - interval '3 days' $$;
+    FROM payments
+    WHERE payments.user_id = p.id
+      AND payments.status = 'paid'
+    ORDER BY created_at DESC
+    LIMIT 1
+  ) pay ON true
+  WHERE p.auto_renew = true
+    AND p.card_uuid IS NOT NULL
+    AND p.subscription_expires_at <= now() + interval '1 day'
+    AND p.subscription_expires_at > now() - interval '3 days'
+    AND (
+      p.last_renewal_attempt_at IS NULL
+      OR p.last_renewal_attempt_at < current_date
+    );
+$$;

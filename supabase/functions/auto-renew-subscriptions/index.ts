@@ -1,59 +1,67 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const EPOINT_BASE_URL = Deno.env.get("EPOINT_BASE_URL")!;
-const EPOINT_PUBLIC_KEY = Deno.env.get("EPOINT_PUBLIC_KEY")!;
-const EPOINT_PRIVATE_KEY = Deno.env.get("EPOINT_PRIVATE_KEY")!;
+const PAYRIFF_BASE_URL = "https://api.payriff.com";
+const PAYRIFF_SECRET_KEY = Deno.env.get("PAYRIFF_SECRET_KEY")!;
+const RENEWAL_CALLBACK_URL = Deno.env.get("PAYRIFF_RENEWAL_CALLBACK_URL")!;
 
-// TODO — same unverified endpoint path issue as lib/epoint.ts.
-// Confirm the real path against your dashboard/PHP SDK tomorrow.
-const EXECUTE_PAY_PATH = "/execute-pay"; // placeholder
-
-function signPayload(payload: Record<string, unknown>) {
-  const json = JSON.stringify(payload);
-  const data = btoa(json);
-  const sgnString = EPOINT_PRIVATE_KEY + data + EPOINT_PRIVATE_KEY;
-  // Deno has no built-in sha1+base64 one-liner — use the Web Crypto API
-  return { data, sgnString };
-}
-
-async function sha1Base64(input: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const digest = await crypto.subtle.digest("SHA-1", encoder.encode(input));
-  return btoa(String.fromCharCode(...new Uint8Array(digest)));
-}
-
-async function executePay(params: {
-  cardId: string;
+type AutoPayPayload = {
   orderId: string;
+  paymentStatus: string;
+  transactions: Array<{
+    uuid: string;
+    status: string;
+  }>;
+};
+
+type PayriffResponse<T> = {
+  code: string;
+  message: string;
+  internalMessage?: string | null;
+  payload: T;
+};
+
+function isPaymentSuccessful(paymentStatus: string): boolean {
+  return (
+    paymentStatus === "APPROVED" ||
+    paymentStatus === "ACCEPTED" ||
+    paymentStatus === "PAID" ||
+    paymentStatus === "COMPLETED"
+  );
+}
+
+async function autoPay(params: {
+  cardUuid: string;
   amount: number;
-  description?: string;
-}) {
-  const payload = {
-    public_key: EPOINT_PUBLIC_KEY,
-    language: "az",
-    card_id: params.cardId,
-    order_id: params.orderId,
-    amount: params.amount,
-    currency: "AZN",
-    description: params.description,
-  };
-
-  const { data, sgnString } = signPayload(payload);
-  const signature = await sha1Base64(sgnString);
-
-  const res = await fetch(`${EPOINT_BASE_URL}${EXECUTE_PAY_PATH}`, {
+  description: string;
+  orderId: string;
+}): Promise<AutoPayPayload> {
+  const res = await fetch(`${PAYRIFF_BASE_URL}/api/v3/autoPay`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ data, signature }).toString(),
+    signal: AbortSignal.timeout(30_000),
+    headers: {
+      Authorization: PAYRIFF_SECRET_KEY, // no "Bearer " prefix
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      cardUuid: params.cardUuid,
+      amount: params.amount,
+      currency: "AZN",
+      description: params.description,
+      callbackUrl: RENEWAL_CALLBACK_URL,
+      operation: "PURCHASE",
+      orderId: params.orderId,
+    }),
   });
 
-  const json = await res.json();
+  const json = (await res.json()) as PayriffResponse<AutoPayPayload>;
 
-  if (json.status === "error" || json.status === "failed") {
-    throw new Error(json.message || `e-Point request failed: ${res.status}`);
+  // Per Payriff docs: code/message only confirm the API call was processed,
+  // NOT that the payment succeeded — that's payload.paymentStatus, checked separately below.
+  if (json.code !== "00000" && json.code !== "01000") {
+    throw new Error(json.message || `Payriff autoPay request failed: ${res.status}`);
   }
 
-  return json;
+  return json.payload;
 }
 
 Deno.serve(async (req: Request) => {
@@ -91,10 +99,23 @@ Deno.serve(async (req: Request) => {
 
   for (const row of due ?? []) {
     let newPayment: { id: number } | null = null;
+
+    // Mark the attempt timestamp immediately so a re-run today (manual trigger,
+    // cron overlap) doesn't double-select this profile — get_due_renewals()
+    // filters on last_renewal_attempt_at < current_date.
+    const { error: attemptError } = await supabase
+      .from("profiles")
+      .update({ last_renewal_attempt_at: new Date().toISOString() })
+      .eq("id", row.user_id);
+
+      if (attemptError) {
+        console.error("Failed to record renewal attempt:", attemptError);
+        results.push({ user_id: row.user_id, status: "attempt_record_failed" });
+        continue;
+      }
+
     try {
-      // First, insert a new payments row so we have an order_id to charge against —
-      // same pattern as create-order/route.ts, since e-Point identifies orders by
-      // whatever id we generate, not one it hands back.
+      // Insert a pending payments row first so we have an order_id to charge against.
       const { data: paymentData, error: insertError } = await supabase
         .from("payments")
         .insert({
@@ -102,6 +123,7 @@ Deno.serve(async (req: Request) => {
           amount: row.amount,
           plan_months: row.plan_months,
           status: "pending",
+          is_renewal: true,
         })
         .select()
         .single();
@@ -114,31 +136,35 @@ Deno.serve(async (req: Request) => {
 
       newPayment = paymentData;
 
-      let chargeResult;
+      let chargeResult: AutoPayPayload;
       try {
-        chargeResult = await executePay({
-          cardId: row.card_id,
+        chargeResult = await autoPay({
+          cardUuid: row.card_uuid,
           orderId: String(newPayment!.id),
           amount: row.amount,
           description: "Info Academy auto-renew",
         });
       } catch (chargeError) {
-        console.error("executePay failed during auto-renewal:", chargeError);
+        console.error("autoPay failed during auto-renewal:", chargeError);
         await supabase
           .from("payments")
           .update({ status: "failed" })
           .eq("id", newPayment!.id);
         // Payment is marked as failed, fall through to catch block for attempt counting
-        throw chargeError;
+        throw new Error(`executePay failed during auto-renewal: ${(chargeError as Error).message}`);
       }
 
-      if (chargeResult.status !== "success") {
+      if (!isPaymentSuccessful(chargeResult.paymentStatus)) {
         await supabase
           .from("payments")
-          .update({ status: "failed" })
+          .update({
+            status: "failed",
+            payriff_order_id: chargeResult.orderId,
+            payriff_transaction_id: chargeResult.transactions?.[0]?.uuid ?? null,
+          })
           .eq("id", newPayment!.id);
         throw new Error(
-          chargeResult.message || "Charge did not return success",
+          `Charge did not succeed — paymentStatus: ${chargeResult.paymentStatus}`,
         );
       }
 
@@ -188,19 +214,23 @@ Deno.serve(async (req: Request) => {
 
       await supabase
         .from("payments")
-        .update({ status: "paid" })
+        .update({
+          status: "paid",
+          payriff_order_id: chargeResult.orderId,
+          payriff_transaction_id: chargeResult.transactions?.[0]?.uuid ?? null,
+        })
         .eq("id", newPayment!.id);
 
       results.push({ user_id: row.user_id, status: "renewed" });
     } catch (err) {
-      // This catch block handles errors from executePay (payment already marked as failed in try block)
+      // This catch block handles errors from autoPay (payment already marked as failed in try block)
       // and other unexpected errors (payment will be marked as failed here)
       const error = err as Error;
-      const isExecutePayError = error.message.includes(
+      const isAutoPayError = error.message.includes(
         "executePay failed during auto-renewal",
       );
 
-      if (newPayment && !isExecutePayError) {
+      if (newPayment && !isAutoPayError) {
         await supabase
           .from("payments")
           .update({ status: "failed" })

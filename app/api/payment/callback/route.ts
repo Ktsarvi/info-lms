@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/service";
-import {
-  verifyCallbackSignature,
-  decodeCallbackData,
-  executePay,
-} from "@/lib/epoint";
+import { getOrderInfo, isPaymentSuccessful, isPaymentTerminalFailure } from "@/lib/payriff";
 
 // This route serves two very different purposes depending on the method:
 //
-// GET  — the customer's BROWSER lands here after e-Point redirects them
-//        back from the bank page. This carries our own ?paymentId= query
-//        param (which we control), but nothing cryptographically verified
-//        from e-Point itself. Treat this as UX-only — never update payment
-//        status based on this alone.
+// GET  — the customer's BROWSER lands here after Payriff redirects them
+//        back from the payment page (approveURL/cancelURL/declineURL).
+//        This is UX-only — never update payment status based on this alone.
 //
-// POST — e-Point's SERVER calls this directly with a signed data+signature
-//        payload. This is the only trustworthy source of truth.
+// POST — Payriff's SERVER calls this with the callbackUrl we registered on
+//        the order. IMPORTANT: the exact payload shape Payriff sends here
+//        was not confirmed in the docs we had — only createOrder/autoPay/
+//        getOrderInfo response shapes were documented. To stay safe, we
+//        only use the incoming body to find the orderId, then call
+//        getOrderInfo() to fetch the verified status directly from
+//        Payriff's API rather than trusting the callback body's fields.
+//        CONFIRM the actual field name carrying orderId in a real sandbox
+//        callback before relying on this in production — see TODO below.
 
 export async function GET(req: NextRequest) {
   const paymentId = req.nextUrl.searchParams.get("paymentId");
@@ -25,9 +26,6 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Just send the user somewhere sensible. The actual status update already
-  // happened (or will happen) via the POST webhook below — we don't trust
-  // or act on anything from this GET beyond routing the browser.
   const supabase = createClient();
   const { data: payment } = await supabase
     .from("payments")
@@ -48,159 +46,99 @@ export async function POST(req: NextRequest) {
   const supabase = createClient();
 
   try {
-    const formData = await req.formData();
-    const data = formData.get("data") as string;
-    const signature = formData.get("signature") as string;
+    // TODO — UNVERIFIED: confirm the real shape of Payriff's callback body
+    // in sandbox. Guessing JSON with an orderId field based on their other
+    // endpoints' payload shapes (createOrder/autoPay/getOrderInfo all key
+    // off "orderId"). If Payriff sends form-encoded data instead, switch
+    // this to req.formData() like the old e-Point route did.
+    const body = await req.json();
+    const orderId: string | undefined = body?.orderId ?? body?.payload?.orderId;
 
-    if (!data || !signature || !verifyCallbackSignature(data, signature)) {
-      console.error("e-Point callback: invalid or missing signature");
-      return NextResponse.json({ status: "error" }, { status: 400 });
+    if (!orderId) {
+      console.error("Payriff callback: no orderId found in payload", body);
+      return NextResponse.json({ status: "error", message: "no orderId" }, { status: 400 });
     }
 
-    const payload = decodeCallbackData(data);
-    const { order_id, status, operation_code, card_id, amount } = payload;
+    // Find the payments row by the Payriff orderId we stored when the order
+    // was created (in your create-order route — make sure that route writes
+    // payriff_order_id immediately after calling createOrder(), since
+    // Payriff generates this ID itself rather than accepting one from us).
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("payriff_order_id", orderId)
+      .single();
 
-    // operation_code: "001" = card registration, "100" = customer payment
-    if (operation_code === "001") {
-      // TODO — UNVERIFIED, confirm tomorrow: order_id may genuinely be null
-      // here since Register Card's documented request has no order_id field
-      // to echo back. If it IS null in practice, we have no way to know
-      // which pending `payments` row this registration belongs to, and this
-      // whole branch needs a different correlation strategy (e.g. e-Point
-      // may support a custom reference field we haven't seen documented,
-      // or card_id may need to be matched via a short-lived server-side
-      // session instead of the stateless webhook).
-      if (!order_id) {
-        console.error(
-          "Card registration callback has no order_id — cannot correlate to a payment row",
-          payload,
-        );
-        return NextResponse.json(
-          { status: "error", message: "no order_id" },
-          { status: 200 },
-        );
-      }
+    if (!payment) {
+      console.error("Payriff callback: payment not found for orderId", { orderId });
+      return NextResponse.json({ status: "success" }); // ack receipt either way
+    }
 
-      const paymentId = Number(order_id);
-      const { data: payment } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("id", paymentId)
-        .single();
+    // Only proceed if payment is still pending - prevent replay charges and status regression
+    if (payment.status !== "pending") {
+      console.log("Payriff callback: payment already processed", {
+        paymentId: payment.id,
+        status: payment.status,
+      });
+      return NextResponse.json({ status: "success" }); // ack receipt either way
+    }
 
-      if (!payment) {
-        console.error("Card registration callback: payment not found", {
-          paymentId,
+    // Don't trust the callback body's status fields directly — fetch the
+    // verified order status from Payriff's API.
+    let orderInfo;
+    try {
+      orderInfo = await getOrderInfo(orderId);
+    } catch (fetchError) {
+      console.error("Payriff callback: getOrderInfo failed", fetchError);
+      // Leave payment pending — we couldn't verify, so don't mark it failed
+      // or paid based on unverified data. Payriff may retry the callback.
+      return NextResponse.json({ status: "error" }, { status: 500 });
+    }
+
+    if (!isPaymentSuccessful(orderInfo.paymentStatus)) {
+      if (!isPaymentTerminalFailure(orderInfo.paymentStatus)) {
+        console.warn("Payriff callback: non-final status, leaving pending", {
+          paymentId: payment.id,
+          paymentStatus: orderInfo.paymentStatus,
         });
-        return NextResponse.json({ status: "success" }); // ack receipt either way
+        return NextResponse.json({ status: "success" });
       }
-
-      // Only proceed if payment is still pending - prevent replay charges and status regression
-      if (payment.status !== "pending") {
-        console.log("Card registration callback: payment already processed", {
-          paymentId,
-          status: payment.status,
-        });
-        return NextResponse.json({ status: "success" }); // ack receipt either way
-      }
-
-      if (status !== "success" || !card_id) {
-        await supabase
-          .from("payments")
-          .update({ status: "failed" })
-          .eq("id", paymentId);
-        return NextResponse.json({ status: "success" }); // ack receipt either way
-      }
-
-      // Card confirmed — save it, then immediately charge for the first period.
       await supabase
-        .from("profiles")
-        .update({ card_id, auto_renew: true })
-        .eq("id", payment.user_id);
-
-      let chargeResult;
-      try {
-        chargeResult = await executePay({
-          cardId: card_id,
-          orderId: String(payment.id),
-          amount: Number(payment.amount),
-          description: "Info Academy subscription — first charge",
-        });
-      } catch (chargeError) {
-        console.error(
-          "executePay failed during card registration callback:",
-          chargeError,
-        );
-        await supabase
-          .from("payments")
-          .update({ status: "failed" })
-          .eq("id", payment.id);
-        // Mark as failed and continue - preserve existing failure response behavior
-        return NextResponse.json({ status: "success" }); // ack receipt after marking as failed
-      }
-
-      if (chargeResult.status === "success") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("subscription_expires_at")
-          .eq("id", payment.user_id)
-          .single();
-
-        const base =
-          profile?.subscription_expires_at &&
-          new Date(profile.subscription_expires_at) > new Date()
-            ? new Date(profile.subscription_expires_at)
-            : new Date();
-        base.setMonth(base.getMonth() + payment.plan_months);
-
-        await supabase
-          .from("profiles")
-          .update({
-            is_subscribed: true,
-            subscription_expires_at: base.toISOString(),
-          })
-          .eq("id", payment.user_id);
-
-        await supabase
-          .from("payments")
-          .update({ status: "paid" })
-          .eq("id", payment.id);
-      } else {
-        await supabase
-          .from("payments")
-          .update({ status: "failed" })
-          .eq("id", payment.id);
-      }
-
-      return NextResponse.json({ status: "success" });
+        .from("payments")
+        .update({
+          status: "failed",
+          payriff_transaction_id: orderInfo.transactions?.[0]?.uuid ?? null,
+        })
+        .eq("id", payment.id);
+      return NextResponse.json({ status: "success" }); // ack receipt either way
     }
 
-    if (operation_code === "100") {
-      // Direct payment confirmation (not currently used in our flow, since
-      // we go through card-registration-then-charge, but handling it keeps
-      // this route correct if that changes later).
-      if (order_id) {
-        const paymentId = Number(order_id);
-        const { data: payment } = await supabase
-          .from("payments")
-          .select("status")
-          .eq("id", paymentId)
-          .single();
+    // Payment succeeded. If this order had cardSave: true, the saved card's
+    // uuid comes back on the transaction's cardDetails.
+    const cardUuid = orderInfo.transactions?.[0]?.cardDetails?.uuid ?? null;
+    const transactionId = orderInfo.transactions?.[0]?.uuid ?? null;
 
-        // Only update if payment is still pending - prevent replay charges and status regression
-        if (payment && payment.status === "pending") {
-          await supabase
-            .from("payments")
-            .update({ status: status === "success" ? "paid" : "failed" })
-            .eq("id", paymentId);
-        }
-      }
-      return NextResponse.json({ status: "success" });
+    // Use atomic Postgres function to grant subscription and mark payment as paid
+    const { error: rpcError } = await supabase.rpc("grant_subscription_and_mark_paid", {
+      p_user_id: payment.user_id,
+      p_payment_id: payment.id,
+      p_plan_months: payment.plan_months,
+      p_card_uuid: cardUuid,
+      p_transaction_id: transactionId,
+    });
+
+    if (rpcError) {
+      console.error("Payriff callback: atomic update failed", {
+        paymentId: payment.id,
+        userId: payment.user_id,
+        error: rpcError,
+      });
+      return NextResponse.json({ status: "error" }, { status: 500 });
     }
 
-    return NextResponse.json({ status: "success" }); // unrecognized operation_code, ack anyway
+    return NextResponse.json({ status: "success" });
   } catch (error) {
-    console.error("e-Point callback processing error:", error);
+    console.error("Payriff callback processing error:", error);
     return NextResponse.json({ status: "error" }, { status: 500 });
   }
 }
