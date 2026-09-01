@@ -7,7 +7,8 @@ const PAYRIFF_MERCHANT_ID = process.env.PAYRIFF_MERCHANT_ID!;
 // Toggle this manually between sandbox and production before deploying.
 // Based on Payriff docs, the base URL should be https://api.payriff.ae
 // Sandbox vs production is controlled by which merchant/secret key you use
-const PAYRIFF_BASE_URL = "https://api.payriff.ae";
+// Fallback to .com if .ae times out
+const PAYRIFF_BASE_URL = "https://api.payriff.com";
 
 type PayriffResponse<T> = {
   code: string;
@@ -35,7 +36,7 @@ async function payriffRequest<T>(
       "Content-Type": "application/json",
     },
     body: httpMethod === "GET" ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(60_000),
   });
 
   const text = await res.text();
