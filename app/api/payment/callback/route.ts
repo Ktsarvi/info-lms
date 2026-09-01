@@ -19,8 +19,12 @@ import { getOrderInfo, isPaymentSuccessful, isPaymentTerminalFailure } from "@/l
 //        callback before relying on this in production — see TODO below.
 
 export async function GET(req: NextRequest) {
+  console.log("DEBUG: GET callback received");
   const paymentId = req.nextUrl.searchParams.get("paymentId");
+  console.log("DEBUG: GET callback paymentId:", paymentId);
+  
   if (!paymentId) {
+    console.log("DEBUG: No paymentId in GET callback, redirecting to pricing");
     return NextResponse.redirect(
       new URL("/pricing?error=missing_payment", req.url),
     );
@@ -29,12 +33,43 @@ export async function GET(req: NextRequest) {
   const supabase = createClient();
   const { data: payment } = await supabase
     .from("payments")
-    .select("status")
+    .select("id, status, payriff_order_id, user_id, plan_months")
     .eq("id", paymentId)
     .single();
 
+  console.log("DEBUG: GET callback payment status:", payment?.status);
+
   if (payment?.status === "paid") {
     return NextResponse.redirect(new URL("/courses?success=1", req.url));
+  }
+
+  // If payment is still pending, try to check status with Payriff
+  if (payment?.status === "pending" && payment?.payriff_order_id) {
+    console.log("DEBUG: Payment still pending, checking Payriff status");
+    try {
+      const orderInfo = await getOrderInfo(payment.payriff_order_id);
+      console.log("DEBUG: Payriff order status:", orderInfo.paymentStatus);
+      
+      if (isPaymentSuccessful(orderInfo.paymentStatus)) {
+        const cardUuid = orderInfo.transactions?.[0]?.cardDetails?.uuid ?? null;
+        const transactionId = orderInfo.transactions?.[0]?.uuid ?? null;
+        
+        const { error: rpcError } = await supabase.rpc("grant_subscription_and_mark_paid", {
+          p_user_id: payment.user_id,
+          p_payment_id: payment.id,
+          p_plan_months: payment.plan_months,
+          p_card_uuid: cardUuid,
+          p_transaction_id: transactionId,
+        });
+        
+        if (!rpcError) {
+          console.log("DEBUG: Payment updated to paid via GET callback");
+          return NextResponse.redirect(new URL("/courses?success=1", req.url));
+        }
+      }
+    } catch (error) {
+      console.error("DEBUG: Failed to check payment status in GET callback:", error);
+    }
   }
 
   return NextResponse.redirect(
