@@ -33,8 +33,10 @@ export async function GET(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     
+    console.log("DEBUG: Authenticated user:", user ? { id: user.id } : "null");
+    
     if (user) {
-      const { data: recentPayment } = await supabase
+      const { data: recentPayment, error: queryError } = await supabase
         .from("payments")
         .select("id, status, payriff_order_id, user_id, plan_months")
         .eq("user_id", user.id)
@@ -42,6 +44,9 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
+      
+      console.log("DEBUG: Recent payment query result:", recentPayment ? { id: recentPayment.id, status: recentPayment.status } : "null");
+      console.log("DEBUG: Query error:", queryError);
       
       if (recentPayment) {
         payment = recentPayment;
