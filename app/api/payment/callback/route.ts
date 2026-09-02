@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/service";
+import { createClient } from "@/utils/supabase/server";
 import { getOrderInfo, isPaymentSuccessful, isPaymentTerminalFailure } from "@/lib/payriff";
 
 // This route serves two very different purposes depending on the method:
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const paymentId = req.nextUrl.searchParams.get("paymentId");
   console.log("DEBUG: GET callback paymentId:", paymentId);
   
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // If no paymentId provided, try to find the most recent pending payment for the authenticated user
   let payment;
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     console.log("DEBUG: Payriff callback POST received");
