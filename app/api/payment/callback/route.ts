@@ -23,21 +23,49 @@ export async function GET(req: NextRequest) {
   const paymentId = req.nextUrl.searchParams.get("paymentId");
   console.log("DEBUG: GET callback paymentId:", paymentId);
   
-  if (!paymentId) {
-    console.log("DEBUG: No paymentId in GET callback, redirecting to pricing");
-    return NextResponse.redirect(
-      new URL("/pricing?error=missing_payment", req.url),
-    );
-  }
-
   const supabase = createClient();
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("id, status, payriff_order_id, user_id, plan_months")
-    .eq("id", paymentId)
-    .single();
-
-  console.log("DEBUG: GET callback payment status:", payment?.status);
+  
+  // If no paymentId provided, try to find the most recent pending payment for the authenticated user
+  let payment;
+  if (!paymentId) {
+    console.log("DEBUG: No paymentId in GET callback, trying to find user's recent pending payment");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+    if (user) {
+      const { data: recentPayment } = await supabase
+        .from("payments")
+        .select("id, status, payriff_order_id, user_id, plan_months")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (recentPayment) {
+        payment = recentPayment;
+        console.log("DEBUG: Found recent pending payment:", { id: payment.id, status: payment.status });
+      }
+    }
+    
+    if (!payment) {
+      console.log("DEBUG: No recent pending payment found, redirecting to pricing");
+      return NextResponse.redirect(
+        new URL("/pricing?error=missing_payment", req.url),
+      );
+    }
+  } else {
+    // If paymentId is provided, use it
+    const { data: paymentData } = await supabase
+      .from("payments")
+      .select("id, status, payriff_order_id, user_id, plan_months")
+      .eq("id", paymentId)
+      .single();
+    
+    payment = paymentData;
+    console.log("DEBUG: GET callback payment status:", payment?.status);
+  }
 
   if (payment?.status === "paid") {
     return NextResponse.redirect(new URL("/courses?success=1", req.url));
