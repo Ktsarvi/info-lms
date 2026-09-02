@@ -105,7 +105,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     console.log("DEBUG: Payriff callback body:", JSON.stringify(body, null, 2));
     
-    const orderId: string | undefined = body?.orderId ?? body?.payload?.orderId;
+    // Try multiple possible orderId locations
+    const orderId: string | undefined = 
+      body?.orderId ?? 
+      body?.payload?.orderId ?? 
+      body?.sessionId ?? 
+      body?.payload?.sessionId;
     console.log("DEBUG: Extracted orderId:", orderId);
 
     if (!orderId) {
@@ -117,16 +122,30 @@ export async function POST(req: NextRequest) {
     // was created (in your create-order route — make sure that route writes
     // payriff_order_id immediately after calling createOrder(), since
     // Payriff generates this ID itself rather than accepting one from us).
-    const { data: payment } = await supabase
+    let { data: payment } = await supabase
       .from("payments")
       .select("*")
       .eq("payriff_order_id", orderId)
       .single();
 
-    console.log("DEBUG: Found payment:", payment ? { id: payment.id, status: payment.status } : "null");
+    console.log("DEBUG: Found payment by orderId:", payment ? { id: payment.id, status: payment.status } : "null");
+
+    // If not found by orderId, try to find by sessionId (Payriff sometimes sends different IDs)
+    if (!payment && body?.payload?.sessionId) {
+      const { data: paymentBySession } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("payriff_order_id", body.payload.sessionId)
+        .single();
+      
+      if (paymentBySession) {
+        payment = paymentBySession;
+        console.log("DEBUG: Found payment by sessionId:", { id: payment.id, status: payment.status });
+      }
+    }
 
     if (!payment) {
-      console.error("Payriff callback: payment not found for orderId", { orderId });
+      console.error("Payriff callback: payment not found for orderId/sessionId", { orderId, sessionId: body?.payload?.sessionId });
       return NextResponse.json({ status: "success" }); // ack receipt either way
     }
 
@@ -158,22 +177,26 @@ export async function POST(req: NextRequest) {
       isTerminalFailure: isPaymentTerminalFailure(orderInfo.paymentStatus)
     });
 
+    // Handle different payment statuses
     if (!isPaymentSuccessful(orderInfo.paymentStatus)) {
-      if (!isPaymentTerminalFailure(orderInfo.paymentStatus)) {
+      if (isPaymentTerminalFailure(orderInfo.paymentStatus)) {
+        // Payment failed - mark as failed
+        await supabase
+          .from("payments")
+          .update({
+            status: "failed",
+            payriff_transaction_id: orderInfo.transactions?.[0]?.uuid ?? null,
+          })
+          .eq("id", payment.id);
+        return NextResponse.json({ status: "success" }); // ack receipt either way
+      } else {
+        // Payment still processing (CREATED, etc.) - leave pending for retry
         console.warn("Payriff callback: non-final status, leaving pending", {
           paymentId: payment.id,
           paymentStatus: orderInfo.paymentStatus,
         });
         return NextResponse.json({ status: "success" });
       }
-      await supabase
-        .from("payments")
-        .update({
-          status: "failed",
-          payriff_transaction_id: orderInfo.transactions?.[0]?.uuid ?? null,
-        })
-        .eq("id", payment.id);
-      return NextResponse.json({ status: "success" }); // ack receipt either way
     }
 
     // Payment succeeded. If this order had cardSave: true, the saved card's
