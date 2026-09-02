@@ -330,6 +330,9 @@ grant select,
 -- ============================================
 -- PAYMENT CALLBACK: ATOMIC SUBSCRIPTION GRANT
 -- ============================================
+-- First drop any existing versions to avoid function overloading
+drop function if exists grant_subscription_and_mark_paid(uuid, bigint, int, text, text);
+drop function if exists grant_subscription_and_mark_paid(uuid, uuid, int, text, text);
 create or replace function grant_subscription_and_mark_paid (
     p_user_id uuid,
     p_payment_id bigint,
