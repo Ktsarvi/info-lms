@@ -28,6 +28,15 @@ const SignupPage = () => {
   const router = useRouter();
   const supabase = createClient();
 
+  React.useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      const timer = setTimeout(() => {
+        setErrors({});
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [errors]);
+
   const validateForm = () => {
     const newErrors: {
       name?: string;

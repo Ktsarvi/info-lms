@@ -13,21 +13,24 @@ function LoginForm() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const errorParam = searchParams.get("error");
   const [errors, setErrors] = React.useState<{
     email?: string;
     password?: string;
     general?: string;
-  }>({});
+  }>(() => (errorParam ? { general: translateSupabaseError(errorParam) } : {}));
   const [loading, setLoading] = React.useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    const errorParam = searchParams.get("error");
-    if (errorParam) {
-      setErrors({ general: translateSupabaseError(errorParam) });
+    if (Object.keys(errors).length > 0) {
+      const timer = setTimeout(() => {
+        setErrors({});
+      }, 10000);
+      return () => clearTimeout(timer);
     }
-  }, [searchParams]);
+  }, [errors]);
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};

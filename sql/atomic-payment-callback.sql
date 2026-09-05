@@ -56,3 +56,6 @@ set status = 'paid',
 where id = p_payment_id;
 end;
 $$ language plpgsql security definer;
+
+revoke execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text) from public, authenticated;
+grant execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text) to service_role;

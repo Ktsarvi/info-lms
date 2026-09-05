@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
-import { termsContent, privacyContent } from "./legal-content";
 
 function NavLink({
   children,
@@ -31,58 +30,6 @@ function NavLink({
     >
       {children}
     </Button>
-  );
-}
-
-export function PrivacyDialog() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <NavLink>Конфиденциальность</NavLink>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{privacyContent.title}</DialogTitle>
-          <DialogDescription>{privacyContent.description}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 text-sm pr-2">
-          {privacyContent.sections.map((section, index) => (
-            <div key={index}>
-              <h3 className="font-semibold mb-2">{section.heading}</h3>
-              <p className="text-muted-foreground whitespace-pre-line">
-                {section.content}
-              </p>
-            </div>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function TermsDialog() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <NavLink>Условия</NavLink>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{termsContent.title}</DialogTitle>
-          <DialogDescription>{termsContent.description}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 text-sm pr-2">
-          {termsContent.sections.map((section, index) => (
-            <div key={index}>
-              <h3 className="font-semibold mb-2">{section.heading}</h3>
-              <p className="text-muted-foreground whitespace-pre-line">
-                {section.content}
-              </p>
-            </div>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 

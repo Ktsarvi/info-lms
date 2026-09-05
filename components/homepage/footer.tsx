@@ -1,4 +1,6 @@
-import { PrivacyDialog, TermsDialog, ContactDialog } from "./legal-dialogs";
+import Link from "next/link";
+import Image from "next/image";
+import { ContactDialog } from "./legal-dialogs";
 
 const Footer = () => {
   return (
@@ -13,21 +15,37 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-2">
-            <img src="/ia_logo_no_bg.png" alt="" className="h-8 w-8 object-contain" />
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/ia_logo_no_bg.png"
+              alt="Info Academy"
+              width={32}
+              height={32}
+              className="h-8 w-8 object-contain"
+            />
             <span
               className="text-base font-semibold"
               style={{ color: "#1E3A5F" }}
             >
               Info Academy
             </span>
-          </span>
+          </Link>
         </div>
 
         {/* Links */}
         <div className="flex items-center gap-1">
-          <PrivacyDialog />
-          <TermsDialog />
+          <Link
+            href="/privacy"
+            className="text-slate-500 hover:text-[#1E3A5F] text-[13px] px-3 py-1.5 transition-colors"
+          >
+            Конфиденциальность
+          </Link>
+          <Link
+            href="/terms"
+            className="text-slate-500 hover:text-[#1E3A5F] text-[13px] px-3 py-1.5 transition-colors"
+          >
+            Условия
+          </Link>
           <ContactDialog />
         </div>
 

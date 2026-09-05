@@ -58,7 +58,9 @@ async function autoPay(params: {
   // Per Payriff docs: code/message only confirm the API call was processed,
   // NOT that the payment succeeded — that's payload.paymentStatus, checked separately below.
   if (json.code !== "00000" && json.code !== "01000") {
-    throw new Error(json.message || `Payriff autoPay request failed: ${res.status}`);
+    throw new Error(
+      json.message || `Payriff autoPay request failed: ${res.status}`,
+    );
   }
 
   return json.payload;
@@ -99,21 +101,8 @@ Deno.serve(async (req: Request) => {
 
   for (const row of due ?? []) {
     let newPayment: { id: number } | null = null;
-
-    // Mark the attempt timestamp immediately so a re-run today (manual trigger,
-    // cron overlap) doesn't double-select this profile — get_due_renewals()
-    // filters on last_renewal_attempt_at < current_date.
-    const { error: attemptError } = await supabase
-      .from("profiles")
-      .update({ last_renewal_attempt_at: new Date().toISOString() })
-      .eq("id", row.user_id);
-
-      if (attemptError) {
-        console.error("Failed to record renewal attempt:", attemptError);
-        results.push({ user_id: row.user_id, status: "attempt_record_failed" });
-        continue;
-      }
-
+    // Note: get_due_renewals() atomically reserves candidates and updates
+    // last_renewal_attempt_at in the same statement, preventing concurrent double-claiming.
     try {
       // Insert a pending payments row first so we have an order_id to charge against.
       const { data: paymentData, error: insertError } = await supabase
@@ -151,7 +140,9 @@ Deno.serve(async (req: Request) => {
           .update({ status: "failed" })
           .eq("id", newPayment!.id);
         // Payment is marked as failed, fall through to catch block for attempt counting
-        throw new Error(`executePay failed during auto-renewal: ${(chargeError as Error).message}`);
+        throw new Error(
+          `executePay failed during auto-renewal: ${(chargeError as Error).message}`,
+        );
       }
 
       if (!isPaymentSuccessful(chargeResult.paymentStatus)) {
@@ -160,7 +151,8 @@ Deno.serve(async (req: Request) => {
           .update({
             status: "failed",
             payriff_order_id: chargeResult.orderId,
-            payriff_transaction_id: chargeResult.transactions?.[0]?.uuid ?? null,
+            payriff_transaction_id:
+              chargeResult.transactions?.[0]?.uuid ?? null,
           })
           .eq("id", newPayment!.id);
         throw new Error(
@@ -203,6 +195,16 @@ Deno.serve(async (req: Request) => {
             renewal_attempt_count: (profile?.renewal_attempt_count ?? 0) + 1,
           })
           .eq("id", row.user_id);
+        // Charge is captured: keep the row pending for review, but store the
+        // gateway identifiers so it can be reconciled or refunded.
+        await supabase
+          .from("payments")
+          .update({
+            payriff_order_id: chargeResult.orderId,
+            payriff_transaction_id:
+              chargeResult.transactions?.[0]?.uuid ?? null,
+          })
+          .eq("id", newPayment!.id);
         // Do not mark payment as paid - leave it pending so it can be reviewed
         results.push({
           user_id: row.user_id,

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getOrderInfo, isPaymentSuccessful, isPaymentTerminalFailure } from "@/lib/payriff";
+import { createClient as createServiceClient } from "@/utils/supabase/service";
+import {
+  getOrderInfo,
+  isPaymentSuccessful,
+  isPaymentTerminalFailure,
+} from "@/lib/payriff";
 
 // This route serves two very different purposes depending on the method:
 //
@@ -19,24 +24,19 @@ import { getOrderInfo, isPaymentSuccessful, isPaymentTerminalFailure } from "@/l
 //        callback before relying on this in production — see TODO below.
 
 export async function GET(req: NextRequest) {
-  console.log("DEBUG: GET callback received");
   const paymentId = req.nextUrl.searchParams.get("paymentId");
-  console.log("DEBUG: GET callback paymentId:", paymentId);
-  
   const supabase = await createClient();
-  
+  const serviceClient = createServiceClient();
+
   // If no paymentId provided, try to find the most recent pending payment for the authenticated user
   let payment;
   if (!paymentId) {
-    console.log("DEBUG: No paymentId in GET callback, trying to find user's recent pending payment");
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    
-    console.log("DEBUG: Authenticated user:", user ? { id: user.id } : "null");
-    
+
     if (user) {
-      const { data: recentPayment, error: queryError } = await supabase
+      const { data: recentPayment } = await supabase
         .from("payments")
         .select("id, status, payriff_order_id, user_id, plan_months")
         .eq("user_id", user.id)
@@ -44,32 +44,26 @@ export async function GET(req: NextRequest) {
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
-      
-      console.log("DEBUG: Recent payment query result:", recentPayment ? { id: recentPayment.id, status: recentPayment.status } : "null");
-      console.log("DEBUG: Query error:", queryError);
-      
+
       if (recentPayment) {
         payment = recentPayment;
-        console.log("DEBUG: Found recent pending payment:", { id: payment.id, status: payment.status });
       }
     }
-    
+
     if (!payment) {
-      console.log("DEBUG: No recent pending payment found, redirecting to pricing");
       return NextResponse.redirect(
         new URL("/pricing?error=missing_payment", req.url),
       );
     }
   } else {
     // If paymentId is provided, use it
-    const { data: paymentData } = await supabase
+    const { data: paymentData } = await serviceClient
       .from("payments")
       .select("id, status, payriff_order_id, user_id, plan_months")
       .eq("id", paymentId)
       .single();
-    
+
     payment = paymentData;
-    console.log("DEBUG: GET callback payment status:", payment?.status);
   }
 
   if (payment?.status === "paid") {
@@ -78,44 +72,42 @@ export async function GET(req: NextRequest) {
 
   // If payment is still pending, try to check status with Payriff
   if (payment?.status === "pending" && payment?.payriff_order_id) {
-    console.log("DEBUG: Payment still pending, checking Payriff status");
     try {
       const orderInfo = await getOrderInfo(payment.payriff_order_id);
-      console.log("DEBUG: Payriff order status:", orderInfo.paymentStatus);
-      
+
       if (isPaymentSuccessful(orderInfo.paymentStatus)) {
         // Payment was successful - grant subscription
         const cardUuid = orderInfo.transactions?.[0]?.cardDetails?.uuid ?? null;
         const transactionId = orderInfo.transactions?.[0]?.uuid ?? null;
-        
-        const { error: rpcError } = await supabase.rpc("grant_subscription_and_mark_paid", {
-          p_user_id: payment.user_id,
-          p_payment_id: payment.id,
-          p_plan_months: payment.plan_months,
-          p_card_uuid: cardUuid,
-          p_transaction_id: transactionId,
-        });
-        
+
+        const { error: rpcError } = await serviceClient.rpc(
+          "grant_subscription_and_mark_paid",
+          {
+            p_user_id: payment.user_id,
+            p_payment_id: payment.id,
+            p_plan_months: payment.plan_months,
+            p_card_uuid: cardUuid,
+            p_transaction_id: transactionId,
+          },
+        );
+
         if (!rpcError) {
-          console.log("DEBUG: Payment updated to paid via GET callback");
           return NextResponse.redirect(new URL("/courses?success=1", req.url));
         } else {
-          console.error("DEBUG: Failed to update payment to paid:", rpcError);
+          console.error("Failed to update payment to paid:", rpcError);
         }
       } else if (isPaymentTerminalFailure(orderInfo.paymentStatus)) {
         // Payment failed - mark as failed
-        await supabase
+        await serviceClient
           .from("payments")
           .update({ status: "failed" })
           .eq("id", payment.id);
-        console.log("DEBUG: Payment marked as failed");
-        return NextResponse.redirect(new URL("/pricing?error=payment_failed", req.url));
-      } else {
-        // Payment still processing/non-final - leave as pending
-        console.log("DEBUG: Payment still processing, leaving as pending");
+        return NextResponse.redirect(
+          new URL("/pricing?error=payment_failed", req.url),
+        );
       }
     } catch (error) {
-      console.error("DEBUG: Failed to check payment status in GET callback:", error);
+      console.error("Failed to check payment status in GET callback:", error);
     }
   }
 
@@ -125,96 +117,64 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
+  const serviceClient = createServiceClient();
 
   try {
-    console.log("DEBUG: Payriff callback POST received");
-    
-    // TODO — UNVERIFIED: confirm the real shape of Payriff's callback body
-    // in sandbox. Guessing JSON with an orderId field based on their other
-    // endpoints' payload shapes (createOrder/autoPay/getOrderInfo all key
-    // off "orderId"). If Payriff sends form-encoded data instead, switch
-    // this to req.formData() like the old e-Point route did.
     const body = await req.json();
-    console.log("DEBUG: Payriff callback body:", JSON.stringify(body, null, 2));
-    
+
     // Try multiple possible orderId locations
-    const orderId: string | undefined = 
-      body?.orderId ?? 
-      body?.payload?.orderId ?? 
-      body?.sessionId ?? 
+    const orderId: string | undefined =
+      body?.orderId ??
+      body?.payload?.orderId ??
+      body?.sessionId ??
       body?.payload?.sessionId;
-    console.log("DEBUG: Extracted orderId:", orderId);
 
     if (!orderId) {
-      console.error("Payriff callback: no orderId found in payload", body);
-      return NextResponse.json({ status: "error", message: "no orderId" }, { status: 400 });
+      return NextResponse.json(
+        { status: "error", message: "Invalid payload" },
+        { status: 400 },
+      );
     }
 
-    // Find the payments row by the Payriff orderId we stored when the order
-    // was created (in your create-order route — make sure that route writes
-    // payriff_order_id immediately after calling createOrder(), since
-    // Payriff generates this ID itself rather than accepting one from us).
-    let { data: payment } = await supabase
+    let { data: payment } = await serviceClient
       .from("payments")
       .select("*")
       .eq("payriff_order_id", orderId)
       .single();
 
-    console.log("DEBUG: Found payment by orderId:", payment ? { id: payment.id, status: payment.status } : "null");
-
-    // If not found by orderId, try to find by sessionId (Payriff sometimes sends different IDs)
     if (!payment && body?.payload?.sessionId) {
-      const { data: paymentBySession } = await supabase
+      const { data: paymentBySession } = await serviceClient
         .from("payments")
         .select("*")
         .eq("payriff_order_id", body.payload.sessionId)
         .single();
-      
+
       if (paymentBySession) {
         payment = paymentBySession;
-        console.log("DEBUG: Found payment by sessionId:", { id: payment.id, status: payment.status });
       }
     }
 
     if (!payment) {
-      console.error("Payriff callback: payment not found for orderId/sessionId", { orderId, sessionId: body?.payload?.sessionId });
       return NextResponse.json({ status: "success" }); // ack receipt either way
     }
 
     // Only proceed if payment is still pending - prevent replay charges and status regression
     if (payment.status !== "pending") {
-      console.log("Payriff callback: payment already processed", {
-        paymentId: payment.id,
-        status: payment.status,
-      });
       return NextResponse.json({ status: "success" }); // ack receipt either way
     }
 
-    // Don't trust the callback body's status fields directly — fetch the
-    // verified order status from Payriff's API.
     let orderInfo;
     try {
       orderInfo = await getOrderInfo(orderId);
-      console.log("DEBUG: Order info received:", JSON.stringify(orderInfo, null, 2));
     } catch (fetchError) {
       console.error("Payriff callback: getOrderInfo failed", fetchError);
-      // Leave payment pending — we couldn't verify, so don't mark it failed
-      // or paid based on unverified data. Payriff may retry the callback.
       return NextResponse.json({ status: "error" }, { status: 500 });
     }
-
-    console.log("DEBUG: Payment status check:", { 
-      paymentStatus: orderInfo.paymentStatus,
-      isSuccessful: isPaymentSuccessful(orderInfo.paymentStatus),
-      isTerminalFailure: isPaymentTerminalFailure(orderInfo.paymentStatus)
-    });
 
     // Handle different payment statuses
     if (!isPaymentSuccessful(orderInfo.paymentStatus)) {
       if (isPaymentTerminalFailure(orderInfo.paymentStatus)) {
-        // Payment failed - mark as failed
-        await supabase
+        await serviceClient
           .from("payments")
           .update({
             status: "failed",
@@ -223,47 +183,30 @@ export async function POST(req: NextRequest) {
           .eq("id", payment.id);
         return NextResponse.json({ status: "success" }); // ack receipt either way
       } else {
-        // Payment still processing (CREATED, etc.) - leave pending for retry
-        console.warn("Payriff callback: non-final status, leaving pending", {
-          paymentId: payment.id,
-          paymentStatus: orderInfo.paymentStatus,
-        });
         return NextResponse.json({ status: "success" });
       }
     }
 
-    // Payment succeeded. If this order had cardSave: true, the saved card's
-    // uuid comes back on the transaction's cardDetails.
     const cardUuid = orderInfo.transactions?.[0]?.cardDetails?.uuid ?? null;
     const transactionId = orderInfo.transactions?.[0]?.uuid ?? null;
 
-    console.log("DEBUG: Calling atomic function with:", {
-      p_user_id: payment.user_id,
-      p_payment_id: payment.id,
-      p_plan_months: payment.plan_months,
-      p_card_uuid: cardUuid,
-      p_transaction_id: transactionId,
-    });
-
     // Use atomic Postgres function to grant subscription and mark payment as paid
-    const { error: rpcError } = await supabase.rpc("grant_subscription_and_mark_paid", {
-      p_user_id: payment.user_id,
-      p_payment_id: payment.id,
-      p_plan_months: payment.plan_months,
-      p_card_uuid: cardUuid,
-      p_transaction_id: transactionId,
-    });
+    const { error: rpcError } = await serviceClient.rpc(
+      "grant_subscription_and_mark_paid",
+      {
+        p_user_id: payment.user_id,
+        p_payment_id: payment.id,
+        p_plan_months: payment.plan_months,
+        p_card_uuid: cardUuid,
+        p_transaction_id: transactionId,
+      },
+    );
 
     if (rpcError) {
-      console.error("Payriff callback: atomic update failed", {
-        paymentId: payment.id,
-        userId: payment.user_id,
-        error: rpcError,
-      });
+      console.error("Payriff callback: atomic update failed", rpcError);
       return NextResponse.json({ status: "error" }, { status: 500 });
     }
 
-    console.log("DEBUG: Atomic function succeeded, payment marked as paid");
     return NextResponse.json({ status: "success" });
   } catch (error) {
     console.error("Payriff callback processing error:", error);

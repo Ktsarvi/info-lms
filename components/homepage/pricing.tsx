@@ -7,6 +7,10 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState, Suspense } from "react";
+import {
+  termsContent,
+  privacyContent,
+} from "@/components/homepage/legal-content";
 
 const features = [
   "Доступ ко всем курсам",
@@ -25,28 +29,56 @@ const PricingInner = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [dismissedErrorParam, setDismissedErrorParam] = useState<string | null>(
+    null,
+  );
 
   const errParam = searchParams.get("error");
   const successParam = searchParams.get("success");
 
-  let urlMessage: { type: "error" | "success"; text: string } | null = null;
-  if (errParam) {
-    const errorMessages: Record<string, string> = {
-      declined: "Оплата была отклонена банком. Пожалуйста, попробуйте снова.",
-      missing_order: "Не найден номер заказа.",
-      unknown_order: "Заказ не найден в системе.",
-      failed: "Произошла ошибка при обработке платежа.",
-    };
-    urlMessage = {
-      type: "error",
-      text: errorMessages[errParam] || "Произошла ошибка при оплате.",
-    };
-  } else if (successParam) {
-    urlMessage = {
-      type: "success",
-      text: "Подписка успешно оформлена! Теперь у вас есть полный доступ.",
-    };
-  }
+  // Derive message directly from search parameters during render
+  const urlMessage = (() => {
+    if (errParam && dismissedErrorParam !== errParam) {
+      const errorMessages: Record<string, string> = {
+        declined: "Оплата была отклонена банком. Пожалуйста, попробуйте снова.",
+        missing_order: "Не найден номер заказа.",
+        unknown_order: "Заказ не найден в системе.",
+        failed: "Произошла ошибка при обработке платежа.",
+      };
+      return {
+        type: "error" as const,
+        text: errorMessages[errParam] || "Произошла ошибка при оплате.",
+      };
+    }
+    if (successParam) {
+      return {
+        type: "success" as const,
+        text: "Подписка успешно оформлена! Теперь у вас есть полный доступ.",
+      };
+    }
+    return null;
+  })();
+
+  // Auto-dismiss url error message after 10s
+  useEffect(() => {
+    if (errParam && dismissedErrorParam !== errParam) {
+      const timer = setTimeout(() => {
+        setDismissedErrorParam(errParam);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [errParam, dismissedErrorParam]);
+
+  // Auto-dismiss inline error message after 10s
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -77,6 +109,7 @@ const PricingInner = () => {
   }, [supabase]);
 
   const handleSubscribe = async () => {
+    if (!agreedToTerms) return;
     setLoading(true);
     setError(null);
     try {
@@ -85,7 +118,13 @@ const PricingInner = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ plan: "1m" }),
+        body: JSON.stringify({
+          plan: "1m",
+          consent: {
+            termsRevision: termsContent.revision,
+            privacyRevision: privacyContent.revision,
+          },
+        }),
       });
 
       const data = await res.json();
@@ -238,18 +277,50 @@ const PricingInner = () => {
                   </Link>
                 </div>
               ) : (
-                <Button
-                  onClick={handleSubscribe}
-                  className="w-full font-medium"
-                  style={{
-                    background: "#3B82F6",
-                    color: "#fff",
-                    border: "none",
-                  }}
-                  disabled={loading}
-                >
-                  {loading ? "Переход к оплате..." : "Подписаться"}
-                </Button>
+                <div className="space-y-4">
+                  <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                    />
+                    <span className="leading-snug">
+                      Я принимаю{" "}
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        Условия обслуживания
+                      </Link>{" "}
+                      и{" "}
+                      <Link
+                        href="/privacy"
+                        target="_blank"
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        Политику конфиденциальности
+                      </Link>
+                    </span>
+                  </label>
+
+                  <Button
+                    onClick={handleSubscribe}
+                    className="w-full font-medium"
+                    style={{
+                      background: "#3B82F6",
+                      color: "#fff",
+                      border: "none",
+                      opacity: !agreedToTerms || loading ? 0.6 : 1,
+                      cursor:
+                        !agreedToTerms || loading ? "not-allowed" : "pointer",
+                    }}
+                    disabled={loading || !agreedToTerms}
+                  >
+                    {loading ? "Переход к оплате..." : "Подписаться"}
+                  </Button>
+                </div>
               )
             ) : (
               <Link href="/login">
