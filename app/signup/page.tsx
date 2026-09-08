@@ -99,6 +99,7 @@ const SignupPage = () => {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             name,
             surname,
@@ -112,17 +113,18 @@ const SignupPage = () => {
         setErrors({ general: translateSupabaseError(error.message) });
         setLoading(false);
       } else if (!data.session) {
-        // No session returned = email confirmation required
+        // Email confirmation required. Phone is stored on the profile by
+        // handle_new_user from user_metadata — there is no session yet to update.
         router.push("/check-email");
       } else {
-        // Save phone to profile after signup
+        // Confirmation already satisfied (rare). Trigger should have copied
+        // phone; keep this as a fallback if the row already existed.
         if (data.user) {
           await supabase
             .from("profiles")
             .update({ phone })
             .eq("id", data.user.id);
         }
-        // Confirmation somehow already satisfied (rare) — proceed normally
         router.push("/pricing");
       }
     }

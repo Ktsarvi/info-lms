@@ -1,7 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
-import { translateSupabaseError } from "@/utils/supabase/error-translations";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -24,21 +23,24 @@ export async function GET(request: NextRequest) {
         requestUrl.origin,
       ),
     );
-  } 
+  }
 
-  // Check subscription status to decide where to send them
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_subscribed, subscription_expires_at")
-    .eq("id", data.user.id)
-    .single();
+  // Email is now confirmed. Clear only this callback session so they land
+  // on /login (middleware would otherwise bounce an authenticated user).
+  const { error: signOutError } = await supabase.auth.signOut({
+    scope: "local",
+  });
 
-  const isActive =
-    profile?.is_subscribed &&
-    (!profile.subscription_expires_at ||
-      new Date(profile.subscription_expires_at) > new Date());
+  if (signOutError) {
+    return NextResponse.redirect(
+      new URL(
+        `/login?error=${encodeURIComponent(signOutError.message)}`,
+        requestUrl.origin,
+      ),
+    );
+  }
 
   return NextResponse.redirect(
-    new URL(isActive ? "/courses" : "/pricing", requestUrl.origin),
+    new URL("/login?confirmed=1", requestUrl.origin),
   );
 }

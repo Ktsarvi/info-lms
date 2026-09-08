@@ -14,6 +14,7 @@ function LoginForm() {
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const errorParam = searchParams.get("error");
+  const confirmed = searchParams.get("confirmed") === "1";
   const [errors, setErrors] = React.useState<{
     email?: string;
     password?: string;
@@ -100,6 +101,11 @@ function LoginForm() {
             Вход в Info Academy
           </h1>
           <p style={{ color: "#64748B" }}>Войдите, чтобы продолжить обучение</p>
+          {confirmed && (
+            <p className="text-sm mt-3" style={{ color: "#16A34A" }}>
+              Email подтвержден. Войдите, чтобы продолжить.
+            </p>
+          )}
         </div>
 
         <div

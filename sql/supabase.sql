@@ -61,11 +61,12 @@ update using (auth.uid () = id);
 -- AUTO-CREATE PROFILE ON SIGNUP (captures full_name now)
 -- ============================================
 create or replace function public.handle_new_user () returns trigger as $$ begin
-insert into public.profiles (id, email, full_name)
+insert into public.profiles (id, email, full_name, phone)
 values (
     new.id,
     new.email,
-    new.raw_user_meta_data->>'full_name'
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'phone'
   );
 return new;
 end;
@@ -74,6 +75,13 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after
 insert on auth.users for each row execute procedure public.handle_new_user ();
+-- Backfill phone from auth metadata for existing users
+update public.profiles p
+set phone = u.raw_user_meta_data->>'phone'
+from auth.users u
+where p.id = u.id
+  and (p.phone is null or p.phone = '')
+  and coalesce(u.raw_user_meta_data->>'phone', '') <> '';
 -- courses
 create table if not exists topics (
   id uuid primary key default gen_random_uuid (),
