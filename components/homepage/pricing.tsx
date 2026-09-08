@@ -22,17 +22,41 @@ const features = [
   "Персональный кабинет",
 ];
 
+const durationOptions = [
+  { id: "weekly", label: "Недельный", price: 10, months: 0.25 },
+  { id: "monthly", label: "Месячный", price: 25, months: 1 },
+  { id: "9month", label: "9 месяцев", price: 150, months: 9 },
+  { id: "yearly", label: "Годовой", price: 220, months: 12 },
+];
+
 const PricingInner = () => {
   const searchParams = useSearchParams();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{
+    days_remaining: number | null;
+    is_expired: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [dismissedErrorParam, setDismissedErrorParam] = useState<string | null>(
     null,
   );
+  const [selectedDuration, setSelectedDuration] = useState("monthly");
+  const [periods, setPeriods] = useState(1);
+  const [userLastDuration, setUserLastDuration] = useState<string | null>(null);
+  const [userLastPeriods, setUserLastPeriods] = useState<number>(1);
+
+  const getDayWord = (days: number): string => {
+    const lastTwo = days % 100;
+    const lastOne = days % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) return "дней";
+    if (lastOne === 1) return "день";
+    if (lastOne >= 2 && lastOne <= 4) return "дня";
+    return "дней";
+  };
 
   const errParam = searchParams.get("error");
   const successParam = searchParams.get("success");
@@ -91,9 +115,20 @@ const PricingInner = () => {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("is_subscribed, subscription_expires_at")
+          .select("is_subscribed, subscription_expires_at, last_duration_type, last_periods")
           .eq("id", user.id)
           .single();
+
+        // Get subscription info for all authenticated users
+        const { data: subInfo } = await supabase
+          .rpc("get_subscription_info");
+        
+        if (subInfo && subInfo[0]) {
+          setSubscriptionInfo({
+            days_remaining: subInfo[0].days_remaining,
+            is_expired: subInfo[0].is_expired,
+          });
+        }
 
         if (
           profile?.is_subscribed &&
@@ -101,6 +136,16 @@ const PricingInner = () => {
             new Date(profile.subscription_expires_at) > new Date())
         ) {
           setIsSubscribed(true);
+        }
+
+        // Set user's last selected duration and periods
+        if (profile?.last_duration_type) {
+          setUserLastDuration(profile.last_duration_type);
+          setSelectedDuration(profile.last_duration_type);
+        }
+        if (profile?.last_periods) {
+          setUserLastPeriods(profile.last_periods);
+          setPeriods(profile.last_periods);
         }
       }
     };
@@ -112,6 +157,13 @@ const PricingInner = () => {
     if (!agreedToTerms) return;
     setLoading(true);
     setError(null);
+    
+    const selectedOption = durationOptions.find(d => d.id === selectedDuration);
+    if (!selectedOption) return;
+    
+    const totalMonths = selectedOption.months * periods;
+    const totalPrice = selectedOption.price * periods;
+    
     try {
       const res = await fetch("/api/payment/create-order", {
         method: "POST",
@@ -119,7 +171,10 @@ const PricingInner = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          plan: "1m",
+          duration: selectedDuration,
+          periods: periods,
+          totalMonths: totalMonths,
+          amount: totalPrice,
           consent: {
             termsRevision: termsContent.revision,
             privacyRevision: privacyContent.revision,
@@ -240,12 +295,70 @@ const PricingInner = () => {
               Полный доступ к платформе
             </div>
 
+            {/* Duration selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: "#1E3A5F" }}>
+                Выберите период
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {durationOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setSelectedDuration(option.id)}
+                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      selectedDuration === option.id
+                        ? "border-blue-500 bg-blue-50 text-blue-700"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="font-semibold">{option.label}</div>
+                    <div className="text-xs opacity-75">{option.price}₼</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Periods selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2" style={{ color: "#1E3A5F" }}>
+                Количество периодов
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPeriods(Math.max(1, periods - 1))}
+                  className="w-10 h-10 rounded-lg border-2 border-gray-200 hover:border-gray-300 flex items-center justify-center font-semibold"
+                  disabled={periods <= 1}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  max="36"
+                  value={periods}
+                  onChange={(e) => setPeriods(Math.max(1, Math.min(36, parseInt(e.target.value) || 1)))}
+                  className="w-20 text-center font-semibold border-2 border-gray-200 rounded-lg p-2"
+                />
+                <button
+                  type="button"
+                  onClick={() => setPeriods(Math.min(36, periods + 1))}
+                  className="w-10 h-10 rounded-lg border-2 border-gray-200 hover:border-gray-300 flex items-center justify-center font-semibold"
+                  disabled={periods >= 36}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Total price */}
             <div className="flex items-baseline gap-1 mb-6">
               <span className="text-5xl font-bold" style={{ color: "#1E3A5F" }}>
-                20₼
+                {(durationOptions.find(d => d.id === selectedDuration)?.price || 25) * periods}₼
               </span>
               <span className="text-sm" style={{ color: "#94A3B8" }}>
-                /месяц
+                {periods > 1 ? ` (${periods} ${periods === 1 ? 'период' : periods < 5 ? 'периода' : 'периодов'})` : ''}
               </span>
             </div>
 
@@ -259,9 +372,19 @@ const PricingInner = () => {
             {isAuthenticated ? (
               isSubscribed ? (
                 <div className="space-y-3">
-                  <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
-                    У вас уже активна подписка
-                  </div>
+                  {subscriptionInfo?.is_expired ? (
+                    <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm text-center font-medium border border-red-200">
+                      Ваша подписка истекла
+                    </div>
+                  ) : subscriptionInfo && subscriptionInfo.days_remaining !== null ? (
+                    <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
+                      Осталось {subscriptionInfo.days_remaining} {getDayWord(subscriptionInfo.days_remaining)}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
+                      У вас активна подписка
+                    </div>
+                  )}
                   <Link href="/courses" className="block w-full">
                     <Button
                       className="w-full font-medium flex items-center justify-center gap-2"

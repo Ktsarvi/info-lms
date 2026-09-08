@@ -7,9 +7,11 @@ import {
   privacyContent,
 } from "@/components/homepage/legal-content";
 
-const PLANS: Record<string, { months: number; amount: number }> = {
-  "1m": { months: 1, amount: 20.0 },
-  "6m": { months: 6, amount: 100.0 },
+const DURATION_CONFIG: Record<string, { months: number; amount: number }> = {
+  "weekly": { months: 0.25, amount: 10.0 },
+  "monthly": { months: 1, amount: 25.0 },
+  "9month": { months: 9, amount: 150.0 },
+  "yearly": { months: 12, amount: 220.0 },
 };
 
 export async function POST(req: NextRequest) {
@@ -23,10 +25,34 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const plan = body?.plan || "1m";
-    const selected = PLANS[plan];
-    if (!selected) {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    
+    // Support both old plan format and new duration/periods format
+    let totalMonths: number;
+    let amount: number;
+    let durationType: string;
+    let periods: number;
+
+    if (body?.duration && body?.periods !== undefined) {
+      // New format with duration and periods
+      durationType = body.duration;
+      periods = body.periods;
+      const config = DURATION_CONFIG[durationType];
+      if (!config) {
+        return NextResponse.json({ error: "Invalid duration" }, { status: 400 });
+      }
+      totalMonths = body.totalMonths || config.months * periods;
+      amount = body.amount || config.amount * periods;
+    } else {
+      // Legacy format for backward compatibility
+      const plan = body?.plan || "1m";
+      const selected = DURATION_CONFIG[plan === "1m" ? "monthly" : plan === "6m" ? "9month" : "monthly"];
+      if (!selected) {
+        return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+      }
+      durationType = "monthly";
+      periods = 1;
+      totalMonths = selected.months;
+      amount = selected.amount;
     }
 
     // --- Consent validation ---
@@ -42,6 +68,13 @@ export async function POST(req: NextRequest) {
     // Privileged server-only client for financial state writes
     const serviceClient = createServiceClient();
 
+    // Get user's phone number for 1Click checkout
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("phone")
+      .eq("id", user.id)
+      .single();
+
     // Insert a pending payment row first. Unlike e-Point's Register Card
     // step, Payriff's createOrder call itself returns its own orderId —
     // we'll write that back onto this row right after the call below, so
@@ -50,8 +83,8 @@ export async function POST(req: NextRequest) {
       .from("payments")
       .insert({
         user_id: user.id,
-        amount: selected.amount,
-        plan_months: selected.months,
+        amount: amount,
+        plan_months: totalMonths,
         status: "pending",
       })
       .select()
@@ -105,13 +138,14 @@ export async function POST(req: NextRequest) {
     let orderResult;
     try {
       orderResult = await createOrder({
-        amount: selected.amount,
-        description: `Info Academy subscription (${plan})`,
+        amount: amount,
+        description: `Info Academy subscription (${durationType} x${periods})`,
         callbackUrl,
-        cardSave: false, // Disabled since autopay is not enabled for this merchant account
+        cardSave: true, // Enable card save for 1Click checkout
         operation: "PURCHASE",
         language: "AZ",
         currency: "AZN",
+        phone: profile?.phone || undefined,
       });
     } catch (orderError) {
       console.error("Payriff createOrder failed:", orderError);
@@ -131,6 +165,15 @@ export async function POST(req: NextRequest) {
       .from("payments")
       .update({ payriff_order_id: orderResult.orderId })
       .eq("id", payment.id);
+
+    // Store user's last selected duration and periods
+    await serviceClient
+      .from("profiles")
+      .update({
+        last_duration_type: durationType,
+        last_periods: periods,
+      })
+      .eq("id", user.id);
 
     if (updateError) {
       console.error("Failed to store payriff_order_id:", updateError);

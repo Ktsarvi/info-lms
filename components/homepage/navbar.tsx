@@ -7,12 +7,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { useEffect, useState } from "react";
 
 interface NavbarUser {
   name: string;
@@ -29,6 +31,38 @@ interface NavbarProps {
 const Navbar = ({ user }: NavbarProps) => {
   const router = useRouter();
   const supabase = createClient();
+  const [subscriptionInfo, setSubscriptionInfo] = useState<{
+    days_remaining: number | null;
+    is_expired: boolean;
+  } | null>(null);
+
+  const getDayWord = (days: number): string => {
+    const lastTwo = days % 100;
+    const lastOne = days % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) return "дней";
+    if (lastOne === 1) return "день";
+    if (lastOne >= 2 && lastOne <= 4) return "дня";
+    return "дней";
+  };
+
+  useEffect(() => {
+    const fetchSubscriptionInfo = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data: subInfo } = await supabase
+          .rpc("get_subscription_info", { p_user_id: authUser.id });
+        
+        if (subInfo && subInfo[0]) {
+          setSubscriptionInfo({
+            days_remaining: subInfo[0].days_remaining,
+            is_expired: subInfo[0].is_expired,
+          });
+        }
+      }
+    };
+
+    fetchSubscriptionInfo();
+  }, [supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -61,13 +95,35 @@ const Navbar = ({ user }: NavbarProps) => {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
           <p className="text-sm font-medium">{user!.name}</p>
           {user!.email && (
             <p className="text-xs text-muted-foreground">{user!.email}</p>
           )}
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {subscriptionInfo && (
+          <div className="px-2 py-1.5">
+            {subscriptionInfo.is_expired ? (
+              <p className="text-xs text-red-600 font-medium">Подписка истекла</p>
+            ) : subscriptionInfo.days_remaining !== null ? (
+              <p className="text-xs text-green-600 font-medium">
+                Осталось {subscriptionInfo.days_remaining} {getDayWord(subscriptionInfo.days_remaining)}
+              </p>
+            ) : (
+              <p className="text-xs text-green-600 font-medium">Активная подписка</p>
+            )}
+          </div>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/pricing" className="flex items-center cursor-pointer">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Продлить подписку
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           id="logout-link"
           className="text-destructive focus:text-destructive"

@@ -23,11 +23,11 @@ async function payriffRequest<T>(
   version: "v2" | "v3",
   method: string,
   body: Record<string, unknown>,
-  httpMethod: "POST" | "GET" | "DELETE" = "POST"
+  httpMethod: "POST" | "GET" | "DELETE" = "POST",
 ): Promise<PayriffResponse<T>> {
   const url = `${PAYRIFF_BASE_URL}/api/${version}/${method}`;
 
-  console.log(`Payriff request: ${httpMethod} ${url}`, { body });
+  console.log(`Payriff request: ${httpMethod} ${url}`);
 
   const res = await fetch(url, {
     method: httpMethod,
@@ -40,8 +40,8 @@ async function payriffRequest<T>(
   });
 
   const text = await res.text();
-  console.log(`Payriff raw response (${res.status}):`, text.slice(0, 1000));
-  
+  console.log(`Payriff response status: ${res.status}`);
+
   let data: PayriffResponse<T>;
   try {
     data = JSON.parse(text) as PayriffResponse<T>;
@@ -53,10 +53,17 @@ async function payriffRequest<T>(
     );
   }
 
-  console.log(`Payriff parsed response:`, { code: data.code, message: data.message, payload: data.payload });
+  console.log(`Payriff parsed response:`, {
+    code: data.code,
+    message: data.message,
+  });
 
   if (data.code !== "00000" && data.code !== "01000") {
-    throw new PayriffError(data.code, data.message, data.internalMessage ?? null);
+    throw new PayriffError(
+      data.code,
+      data.message,
+      data.internalMessage ?? null,
+    );
   }
 
   return data;
@@ -87,6 +94,7 @@ export type CreateOrderParams = {
   approveURL?: string;
   cancelURL?: string;
   declineURL?: string;
+  phone?: string;
 };
 
 export type CreateOrderPayload = {
@@ -104,6 +112,23 @@ export type AutoPayParams = {
   currency?: "AZN" | "PKR" | "SAR" | "AED";
   orderId?: string;
   sessionId?: string;
+};
+
+export type SaveCardParams = {
+  customerRef: string;
+  callbackUrl: string;
+  language?: "AZ" | "EN" | "RU";
+  description?: string;
+};
+
+export type SaveCardPayload = {
+  cardSaveId: string;
+  orderId: string;
+  sessionId: string;
+  paymentUrl: string;
+  amount: number;
+  currency: string;
+  status: string;
 };
 
 // Loosely typed — Payriff's docs show CANCELED/COMPLETED/etc but the full set isn't
@@ -161,10 +186,10 @@ export type OrderInfoPayload = {
  * Set cardSave: true to store the card as a side effect of this real charge.
  */
 export async function createOrder(
-  params: CreateOrderParams
+  params: CreateOrderParams,
 ): Promise<CreateOrderPayload> {
   console.log("DEBUG: createOrder called with", params);
-  
+
   const requestBody: Record<string, unknown> = {
     amount: params.amount,
     language: params.language ?? "AZ",
@@ -173,27 +198,36 @@ export async function createOrder(
     callbackUrl: params.callbackUrl,
     operation: params.operation ?? "PURCHASE",
   };
-  
+
   // Only include cardSave if it's true (merchant account must have autopay enabled)
   if (params.cardSave === true) {
     requestBody.cardSave = true;
+  }
+
+  // Only include phone if provided
+  if (params.phone) {
+    requestBody.phone = params.phone;
   }
   
   // Only include approveURL, cancelURL, declineURL if they're provided
   if (params.approveURL) requestBody.approveURL = params.approveURL;
   if (params.cancelURL) requestBody.cancelURL = params.cancelURL;
   if (params.declineURL) requestBody.declineURL = params.declineURL;
-  
-  const res = await payriffRequest<CreateOrderPayload>("v3", "orders", requestBody);
-  
-  console.log("DEBUG: Payriff response structure:", { 
-    code: res.code, 
-    message: res.message, 
+
+  const res = await payriffRequest<CreateOrderPayload>(
+    "v3",
+    "orders",
+    requestBody,
+  );
+
+  console.log("DEBUG: Payriff response structure:", {
+    code: res.code,
+    message: res.message,
     hasPayload: !!res.payload,
     payloadKeys: res.payload ? Object.keys(res.payload) : [],
-    fullPayload: res.payload 
+    fullPayload: res.payload,
   });
-  
+
   if (!res.payload?.orderId || !res.payload?.paymentUrl) {
     throw new PayriffError(
       res.code,
@@ -236,7 +270,11 @@ export async function getOrderInfo(orderId: string): Promise<OrderInfoPayload> {
   const data = (await res.json()) as PayriffResponse<OrderInfoPayload>;
 
   if (data.code !== "00000" && data.code !== "01000") {
-    throw new PayriffError(data.code, data.message, data.internalMessage ?? null);
+    throw new PayriffError(
+      data.code,
+      data.message,
+      data.internalMessage ?? null,
+    );
   }
 
   return data.payload;
@@ -254,8 +292,72 @@ export async function deleteSavedCard(cardUuid: string): Promise<void> {
   const data = (await res.json()) as PayriffResponse<null>;
 
   if (data.code !== "00000" && data.code !== "01000") {
-    throw new PayriffError(data.code, data.message, data.internalMessage ?? null);
+    throw new PayriffError(
+      data.code,
+      data.message,
+      data.internalMessage ?? null,
+    );
   }
+}
+
+/**
+ * Initiates card save process for 1Click checkout.
+ * Customer is redirected to paymentUrl to enter card details (0.01 AZN verification).
+ */
+export async function saveCard(
+  params: SaveCardParams
+): Promise<SaveCardPayload> {
+  const res = await payriffRequest<SaveCardPayload>("v3", "cards/save", {
+    customerRef: params.customerRef,
+    callbackUrl: params.callbackUrl,
+    language: params.language ?? "AZ",
+    description: params.description ?? "Card save for 1Click checkout",
+  });
+  return res.payload;
+}
+
+// ---------- Invoices API ----------
+
+export type CreateInvoiceParams = {
+  amount: number;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  description: string;
+  currencyType?: "AZN" | "USD" | "EUR";
+  languageType?: "AZ" | "EN" | "RU";
+  expireDate: string;
+  approveURL?: string;
+  cancelURL?: string;
+  declineURL?: string;
+  sendSms?: boolean;
+  sendEmail?: boolean;
+  sendWhatsapp?: boolean;
+  directPay?: boolean;
+  customMessage?: string;
+};
+
+export type CreateInvoicePayload = {
+  id: number;
+  paymentUrl: string;
+  invoiceUuid: string;
+  invoiceCode: number;
+  invoiceStatus: string;
+};
+
+/**
+ * Creates an invoice and automatically sends payment link via SMS/Email.
+ * Used for subscription renewal notifications.
+ */
+export async function createInvoice(
+  merchantId: string,
+  params: CreateInvoiceParams
+): Promise<CreateInvoicePayload> {
+  const res = await payriffRequest<CreateInvoicePayload>("v2", "invoices", {
+    merchant: merchantId,
+    body: params,
+  });
+  return res.payload;
 }
 
 /**

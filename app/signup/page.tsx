@@ -12,6 +12,7 @@ const SignupPage = () => {
   const [name, setName] = React.useState("");
   const [surname, setSurname] = React.useState("");
   const [email, setEmail] = React.useState("");
+  const [phone, setPhone] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
@@ -20,6 +21,7 @@ const SignupPage = () => {
     name?: string;
     surname?: string;
     email?: string;
+    phone?: string;
     password?: string;
     confirmPassword?: string;
     general?: string;
@@ -42,6 +44,7 @@ const SignupPage = () => {
       name?: string;
       surname?: string;
       email?: string;
+      phone?: string;
       password?: string;
       confirmPassword?: string;
     } = {};
@@ -62,6 +65,12 @@ const SignupPage = () => {
       newErrors.email = "Email обязателен";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Неверный формат email";
+    }
+
+    if (!phone) {
+      newErrors.phone = "Номер телефона обязателен";
+    } else if (!/^\+?[0-9]{10,15}$/.test(phone.replace(/\s/g, ""))) {
+      newErrors.phone = "Неверный формат телефона (например: +994501234567)";
     }
 
     if (!password) {
@@ -94,6 +103,7 @@ const SignupPage = () => {
             name,
             surname,
             full_name: `${name} ${surname}`,
+            phone,
           },
         },
       });
@@ -105,6 +115,13 @@ const SignupPage = () => {
         // No session returned = email confirmation required
         router.push("/check-email");
       } else {
+        // Save phone to profile after signup
+        if (data.user) {
+          await supabase
+            .from("profiles")
+            .update({ phone })
+            .eq("id", data.user.id);
+        }
         // Confirmation somehow already satisfied (rare) — proceed normally
         router.push("/pricing");
       }
@@ -193,6 +210,26 @@ const SignupPage = () => {
               />
               {errors.email && (
                 <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+              )}
+            </div>
+
+            <div>
+              <label
+                className="block text-sm font-medium mb-2"
+                style={{ color: "#1E3A5F" }}
+              >
+                Номер телефона
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ borderColor: errors.phone ? "#EF4444" : "#E2E8F0" }}
+                placeholder="+994501234567"
+              />
+              {errors.phone && (
+                <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
               )}
             </div>
 

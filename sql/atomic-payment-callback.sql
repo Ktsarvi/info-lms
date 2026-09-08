@@ -44,10 +44,7 @@ update profiles
 set is_subscribed = true,
   subscription_expires_at = target_expiry,
   card_uuid = coalesce(p_card_uuid, card_uuid),
-  auto_renew = case
-    when p_card_uuid is not null then true
-    else auto_renew
-  end
+  auto_renew = false
 where id = p_user_id;
 -- Mark payment as paid
 update payments
@@ -56,6 +53,7 @@ set status = 'paid',
 where id = p_payment_id;
 end;
 $$ language plpgsql security definer;
-
-revoke execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text) from public, authenticated;
+revoke execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text)
+from public,
+  authenticated;
 grant execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text) to service_role;
