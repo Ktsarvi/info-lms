@@ -229,6 +229,12 @@ export async function createOrder(
   });
 
   if (!res.payload?.orderId || !res.payload?.paymentUrl) {
+    console.error("Payriff createOrder missing required fields:", {
+      code: res.code,
+      message: res.message,
+      internalMessage: res.internalMessage,
+      payload: res.payload,
+    });
     throw new PayriffError(
       res.code,
       "Payriff createOrder returned no orderId/paymentUrl",
