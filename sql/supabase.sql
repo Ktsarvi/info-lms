@@ -4,22 +4,6 @@
 do $$ begin if exists (
   select 1
   from information_schema.columns
-  where table_name = 'profiles'
-    and column_name = 'card_id'
-)
-and not exists (
-  select 1
-  from information_schema.columns
-  where table_name = 'profiles'
-    and column_name = 'card_uuid'
-) then
-alter table profiles
-  rename column card_id to card_uuid;
-end if;
-end $$;
-do $$ begin if exists (
-  select 1
-  from information_schema.columns
   where table_schema = 'public'
     and table_name = 'payments'
     and column_name = 'kapital_order_id'
@@ -37,28 +21,23 @@ create table if not exists profiles (
   full_name text,
   is_subscribed boolean default false,
   subscription_expires_at timestamptz,
-  card_uuid text,
-  auto_renew boolean not null default true,
-  renewal_attempt_count int not null default 0,
-  last_renewal_attempt_at timestamptz,
   created_at timestamptz default now()
 );
 -- Ensures these columns exist even if `profiles` already existed before this
 -- script ran (the create table above is a no-op in that case).
-alter table profiles
-add column if not exists card_uuid text;
-alter table profiles
-add column if not exists auto_renew boolean not null default true;
-alter table profiles
-add column if not exists renewal_attempt_count int not null default 0;
-alter table profiles
-add column if not exists last_renewal_attempt_at timestamptz;
 alter table profiles
 add column if not exists phone text;
 alter table profiles
 add column if not exists last_duration_type text;
 alter table profiles
 add column if not exists last_periods int default 1;
+-- Remove auto-renewal related columns (no longer needed)
+alter table profiles drop column if exists card_id;
+alter table profiles drop column if exists card_uuid;
+alter table profiles drop column if exists card_uuid;
+alter table profiles drop column if exists auto_renew;
+alter table profiles drop column if exists renewal_attempt_count;
+alter table profiles drop column if exists last_renewal_attempt_at;
 -- Ensure foreign key has ON DELETE CASCADE for existing deployments
 do $$ begin if exists (
   select 1
@@ -461,9 +440,7 @@ end if;
 -- Update profile with subscription and optionally card info
 update profiles
 set is_subscribed = true,
-  subscription_expires_at = target_expiry,
-  card_uuid = coalesce(p_card_uuid, card_uuid),
-  auto_renew = false
+  subscription_expires_at = target_expiry
 where id = p_user_id;
 -- Mark payment as paid
 update payments
@@ -476,64 +453,6 @@ revoke execute on function grant_subscription_and_mark_paid (uuid, bigint, int, 
 from public,
   authenticated;
 grant execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text) to service_role;
--- ============================================
--- RENEWALS: DUE-FOR-RENEWAL LOOKUP (Atomic claim)
--- ============================================
-drop function if exists get_due_renewals ();
-create or replace function get_due_renewals () returns table (
-    user_id uuid,
-    card_uuid text,
-    amount numeric,
-    plan_months int
-  ) language plpgsql security definer
-set search_path = public,
-  pg_temp as $$ begin return query with candidates as (
-    select p.id
-    from profiles p
-    where p.auto_renew = true
-      and p.card_uuid is not null
-      and p.subscription_expires_at <= now() + interval '1 day'
-      and p.subscription_expires_at > now() - interval '3 days'
-      and (
-        p.last_renewal_attempt_at is null
-        or p.last_renewal_attempt_at < current_date
-      )
-      and exists (
-        select 1
-        from payments pay
-        where pay.user_id = p.id
-          and pay.status = 'paid'
-      ) for
-    update skip locked
-  ),
-  claimed as (
-    update profiles
-    set last_renewal_attempt_at = now()
-    from candidates
-    where profiles.id = candidates.id
-    returning profiles.id,
-      profiles.card_uuid
-  )
-select c.id,
-  c.card_uuid,
-  pay.amount,
-  pay.plan_months
-from claimed c
-  join lateral (
-    select p.amount,
-      p.plan_months
-    from payments p
-    where p.user_id = c.id
-      and p.status = 'paid'
-    order by p.created_at desc
-    limit 1
-  ) pay on true;
-end;
-$$;
-revoke execute on function get_due_renewals ()
-from public,
-  authenticated;
-grant execute on function get_due_renewals () to service_role;
 -- ============================================
 -- NOTIFICATION LOGS TABLE
 -- ============================================

@@ -68,13 +68,6 @@ export async function POST(req: NextRequest) {
     // Privileged server-only client for financial state writes
     const serviceClient = createServiceClient();
 
-    // Get user's phone number for 1Click checkout
-    const { data: profile } = await serviceClient
-      .from("profiles")
-      .select("phone")
-      .eq("id", user.id)
-      .single();
-
     // Insert a pending payment row first. Unlike e-Point's Register Card
     // step, Payriff's createOrder call itself returns its own orderId —
     // we'll write that back onto this row right after the call below, so
@@ -141,11 +134,9 @@ export async function POST(req: NextRequest) {
         amount: amount,
         description: `Info Academy subscription (${durationType} x${periods})`,
         callbackUrl,
-        cardSave: false, // TODO: Enable after Payriff enables autopay for merchant account (ticket 013434)
         operation: "PURCHASE",
         language: "AZ",
         currency: "AZN",
-        phone: profile?.phone || undefined,
       });
     } catch (orderError) {
       console.error("Payriff createOrder failed:", orderError);
