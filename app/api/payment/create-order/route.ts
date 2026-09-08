@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
         amount: amount,
         description: `Info Academy subscription (${durationType} x${periods})`,
         callbackUrl,
-        cardSave: true, // Enable card save for 1Click checkout
+        cardSave: false, // TODO: Enable after Payriff enables autopay for merchant account (ticket 013434)
         operation: "PURCHASE",
         language: "AZ",
         currency: "AZN",
