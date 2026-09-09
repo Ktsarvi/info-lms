@@ -4,6 +4,72 @@ const PAYRIFF_SECRET_KEY = Deno.env.get("PAYRIFF_SECRET_KEY")!;
 const PAYRIFF_MERCHANT_ID = Deno.env.get("PAYRIFF_MERCHANT_ID")!;
 const PAYRIFF_BASE_URL = "https://api.payriff.com";
 
+// Payriff error class for better error handling
+class PayriffError extends Error {
+  code: string;
+  internalMessage: string | null;
+
+  constructor(code: string, message: string, internalMessage: string | null) {
+    super(`Payriff error ${code}: ${message}`);
+    this.code = code;
+    this.internalMessage = internalMessage;
+    this.name = "PayriffError";
+  }
+}
+
+// Unified Payriff request function with proper error handling and logging
+async function payriffRequest<T>(
+  version: "v2" | "v3",
+  method: string,
+  body: Record<string, unknown>,
+  httpMethod: "POST" | "GET" | "DELETE" = "POST",
+): Promise<{ code: string; message: string; payload: T }> {
+  const url = `${PAYRIFF_BASE_URL}/api/${version}/${method}`;
+
+  console.log(`Payriff request: ${httpMethod} ${url}`);
+  console.log(`Request body:`, JSON.stringify(body, null, 2));
+
+  const res = await fetch(url, {
+    method: httpMethod,
+    headers: {
+      Authorization: PAYRIFF_SECRET_KEY,
+      "Content-Type": "application/json",
+    },
+    body: httpMethod === "GET" ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  const text = await res.text();
+  console.log(`Payriff response status: ${res.status}`);
+  console.log(`Response body:`, text.slice(0, 500));
+
+  let data: { code: string; message: string; payload: T };
+  try {
+    data = JSON.parse(text) as { code: string; message: string; payload: T };
+  } catch {
+    throw new PayriffError(
+      String(res.status),
+      `Payriff returned a non-JSON response (HTTP ${res.status})`,
+      text.slice(0, 500),
+    );
+  }
+
+  console.log(`Payriff parsed response:`, {
+    code: data.code,
+    message: data.message,
+  });
+
+  if (data.code !== "00000") {
+    throw new PayriffError(
+      data.code,
+      data.message,
+      null,
+    );
+  }
+
+  return data;
+}
+
 interface ExpiringUser {
   user_id: string;
   email: string;
@@ -13,6 +79,10 @@ interface ExpiringUser {
   days_until_expiry: number;
   last_duration_type: string | null;
   last_periods: number | null;
+}
+
+function toPayriffPhone(phone: string): string {
+  return phone.replace(/[^\d]/g, "");
 }
 
 async function createRenewalInvoice(user: ExpiringUser) {
@@ -35,43 +105,73 @@ async function createRenewalInvoice(user: ExpiringUser) {
     ? `${lastPeriods} ${lastPeriods === 1 ? 'период' : lastPeriods < 5 ? 'периода' : 'периодов'} (${config.label})`
     : config.label;
   
-  const res = await fetch(`${PAYRIFF_BASE_URL}/api/v2/invoices`, {
-    method: "POST",
-    headers: {
-      Authorization: PAYRIFF_SECRET_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      merchant: PAYRIFF_MERCHANT_ID,
-      body: {
-        amount: amount,
-        fullName: user.full_name || "Customer",
-        email: user.email,
-        phoneNumber: user.phone,
-        description: `Info Academy subscription renewal (${durationLabel})`,
-        currencyType: "AZN",
-        languageType: "AZ",
-        expireDate: expireDate.toISOString(),
-        approveURL: `${appUrl}/courses?success=1`,
-        cancelURL: `${appUrl}/pricing`,
-        declineURL: `${appUrl}/pricing?error=payment_failed`,
-        sendSms: true,
-        sendEmail: true,
-        directPay: true,
-        customMessage: `Ваша подписка истекает через ${user.days_until_expiry} ${user.days_until_expiry === 1 ? 'день' : user.days_until_expiry < 5 ? 'дня' : 'дней'}. Продлите: ${durationLabel} за ${amount}₼`,
-      },
-    }),
-  });
+  try {
+    const data = await payriffRequest<{ id: number; paymentUrl: string; invoiceUuid: string }>(
+      "v2",
+      "invoices",
+      {
+        merchant: PAYRIFF_MERCHANT_ID,
+        body: {
+          amount: amount,
+          fullName: user.full_name || "Customer",
+          email: user.email,
+          phoneNumber: toPayriffPhone(user.phone),
+          description: `Info Academy subscription renewal (${durationLabel})`,
+          currencyType: "AZN",
+          languageType: "AZ",
+          expireDate: expireDate.toISOString(),
+          approveURL: `${appUrl}/courses?success=1`,
+          cancelURL: `${appUrl}/pricing`,
+          declineURL: `${appUrl}/pricing?error=payment_failed`,
+          sendSms: true,
+          sendEmail: true,
+          directPay: true,
+          customMessage: `Ваша подписка истекает через ${user.days_until_expiry} ${user.days_until_expiry === 1 ? 'день' : user.days_until_expiry < 5 ? 'дня' : 'дней'}. Продлите: ${durationLabel} за ${amount}₼`,
+        },
+      }
+    );
 
-  const data = await res.json();
-  return data.code === "00000";
+    console.log(`Invoice created successfully for user ${user.user_id}:`, data.payload);
+    return { ok: true as const, data: data.payload };
+  } catch (error) {
+    console.error(`Failed to create invoice for user ${user.user_id}:`, error);
+    if (error instanceof PayriffError) {
+      return {
+        ok: false as const,
+        error: `${error.code}: ${error.message}`,
+      };
+    }
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+function isServiceRoleRequest(
+  authHeader: string | null,
+  expectedSecret: string | undefined,
+): boolean {
+  if (!authHeader?.startsWith("Bearer ")) return false;
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (expectedSecret && token === expectedSecret) return true;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(padded));
+    return payload.role === "service_role";
+  } catch {
+    return false;
+  }
 }
 
 Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get("Authorization");
   const expectedSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!authHeader || authHeader.replace("Bearer ", "") !== expectedSecret) {
+  if (!isServiceRoleRequest(authHeader, expectedSecret)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
@@ -93,31 +193,58 @@ Deno.serve(async (req: Request) => {
 
   for (const user of (expiringUsers as ExpiringUser[]) ?? []) {
     try {
+      if (!user.phone) {
+        await supabase.from("notification_logs").insert({
+          user_id: user.user_id,
+          type: "invoice",
+          template: "subscription_expiring",
+          status: "failed",
+          error_message: "Missing profiles.phone",
+        });
+        results.push({ user_id: user.user_id, status: "failed", error: "Missing profiles.phone" });
+        continue;
+      }
+
       const invoiceCreated = await createRenewalInvoice(user);
 
       await supabase.from("notification_logs").insert({
         user_id: user.user_id,
         type: "invoice",
         template: "subscription_expiring",
-        status: invoiceCreated ? "sent" : "failed",
-        error_message: invoiceCreated ? null : "Invoice creation failed",
+        status: invoiceCreated.ok ? "sent" : "failed",
+        error_message: invoiceCreated.ok ? null : invoiceCreated.error,
       });
 
-      results.push({ user_id: user.user_id, status: invoiceCreated ? "sent" : "failed" });
+      results.push({
+        user_id: user.user_id,
+        status: invoiceCreated.ok ? "sent" : "failed",
+        error: invoiceCreated.ok ? null : invoiceCreated.error,
+        invoice_data: invoiceCreated.ok ? invoiceCreated.data : null,
+      });
     } catch (err) {
       console.error("Failed to create invoice:", err);
+      
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       
       await supabase.from("notification_logs").insert({
         user_id: user.user_id,
         type: "invoice",
         template: "subscription_expiring",
         status: "failed",
-        error_message: err instanceof Error ? err.message : "Unknown error",
+        error_message: errorMessage,
       });
       
-      results.push({ user_id: user.user_id, status: "error" });
+      results.push({ user_id: user.user_id, status: "error", error: errorMessage });
     }
   }
 
-  return new Response(JSON.stringify({ processed: results.length, results }), { status: 200 });
+  return new Response(JSON.stringify({ 
+    processed: results.length, 
+    results,
+    summary: {
+      total: results.length,
+      sent: results.filter(r => r.status === "sent").length,
+      failed: results.filter(r => r.status === "failed" || r.status === "error").length
+    }
+  }), { status: 200 });
 });

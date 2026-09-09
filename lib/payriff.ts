@@ -58,7 +58,7 @@ async function payriffRequest<T>(
     message: data.message,
   });
 
-  if (data.code !== "00000" && data.code !== "01000") {
+  if (data.code !== "00000") {
     throw new PayriffError(
       data.code,
       data.message,
@@ -269,7 +269,7 @@ export async function getOrderInfo(orderId: string): Promise<OrderInfoPayload> {
   });
   const data = (await res.json()) as PayriffResponse<OrderInfoPayload>;
 
-  if (data.code !== "00000" && data.code !== "01000") {
+  if (data.code !== "00000") {
     throw new PayriffError(
       data.code,
       data.message,
@@ -291,7 +291,7 @@ export async function deleteSavedCard(cardUuid: string): Promise<void> {
   });
   const data = (await res.json()) as PayriffResponse<null>;
 
-  if (data.code !== "00000" && data.code !== "01000") {
+  if (data.code !== "00000") {
     throw new PayriffError(
       data.code,
       data.message,
