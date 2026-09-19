@@ -44,8 +44,6 @@ const PricingInner = () => {
   );
   const [selectedDuration, setSelectedDuration] = useState("monthly");
   const [periods, setPeriods] = useState(1);
-  const [userLastDuration, setUserLastDuration] = useState<string | null>(null);
-  const [userLastPeriods, setUserLastPeriods] = useState<number>(1);
 
   const getDayWord = (days: number): string => {
     const lastTwo = days % 100;
@@ -54,6 +52,26 @@ const PricingInner = () => {
     if (lastOne === 1) return "день";
     if (lastOne >= 2 && lastOne <= 4) return "дня";
     return "дней";
+  };
+
+  const getPeriodText = (duration: string, count: number): string => {
+    if (duration === "weekly") {
+      if (count === 1) return "за неделю";
+      const lastTwo = count % 100;
+      const lastOne = count % 10;
+      if (lastTwo >= 11 && lastTwo <= 14) return `за ${count} недель`;
+      if (lastOne === 1) return `за ${count} неделю`;
+      if (lastOne >= 2 && lastOne <= 4) return `за ${count} недели`;
+      return `за ${count} недель`;
+    } else {
+      if (count === 1) return "за месяц";
+      const lastTwo = count % 100;
+      const lastOne = count % 10;
+      if (lastTwo >= 11 && lastTwo <= 14) return `за ${count} месяцев`;
+      if (lastOne === 1) return `за ${count} месяц`;
+      if (lastOne >= 2 && lastOne <= 4) return `за ${count} месяца`;
+      return `за ${count} месяцев`;
+    }
   };
 
   const errParam = searchParams.get("error");
@@ -144,11 +162,9 @@ const PricingInner = () => {
           )
             ? profile.last_duration_type
             : "monthly";
-          setUserLastDuration(validDuration);
           setSelectedDuration(validDuration);
         }
         if (profile?.last_periods) {
-          setUserLastPeriods(profile.last_periods);
           setPeriods(profile.last_periods);
         }
       }
@@ -266,6 +282,26 @@ const PricingInner = () => {
           </div>
         )}
 
+        {/* Tabs above card */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex p-1.5 bg-slate-100 border border-slate-200 rounded-xl gap-1">
+            {durationOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setSelectedDuration(option.id)}
+                className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                  selectedDuration === option.id
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-5xl mx-auto">
           {/* Features list - left */}
           <div className="space-y-4 order-2 md:order-1">
@@ -292,98 +328,77 @@ const PricingInner = () => {
 
           {/* Pricing card - right */}
           <div
-            className="relative rounded-2xl p-8 order-1 md:order-2 shadow-sm"
+            className="relative rounded-2xl p-8 order-1 md:order-2 shadow-sm flex flex-col justify-between"
             style={{ background: "#fff", border: "2px solid #3B82F6" }}
           >
-            <div
-              className="text-lg font-semibold mb-1"
-              style={{ color: "#1E3A5F" }}
-            >
-              Подписка
-            </div>
-            <div className="text-sm mb-5" style={{ color: "#64748B" }}>
-              Полный доступ к платформе
-            </div>
-
-            {/* Duration selection */}
-            <div className="mb-4">
-              <label
-                className="block text-sm font-medium mb-2"
+            <div>
+              <div
+                className="text-lg font-semibold mb-1"
                 style={{ color: "#1E3A5F" }}
               >
-                Выберите период
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {durationOptions.map((option) => (
+                Подписка
+              </div>
+              <div className="text-sm mb-6" style={{ color: "#64748B" }}>
+                Полный доступ к платформе
+              </div>
+
+              {/* Total price */}
+              <div className="flex items-baseline gap-2 mb-4">
+                <span
+                  className="text-5xl font-bold"
+                  style={{ color: "#1E3A5F" }}
+                >
+                  {(durationOptions.find((d) => d.id === selectedDuration)
+                    ?.price || 20) * periods}
+                  ₼
+                </span>
+                <span className="text-base font-medium text-slate-500">
+                  {getPeriodText(selectedDuration, periods)}
+                </span>
+              </div>
+
+              {/* Periods selection - smaller & below price */}
+              <div className="mb-6 flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                <label
+                  className="text-xs font-semibold"
+                  style={{ color: "#1E3A5F" }}
+                >
+                  Количество периодов:
+                </label>
+                <div className="flex items-center gap-1">
                   <button
-                    key={option.id}
                     type="button"
-                    onClick={() => setSelectedDuration(option.id)}
-                    className={`p-3 rounded-lg border-2 text-sm font-medium transition-colors ${
-                      selectedDuration === option.id
-                        ? "border-blue-500 bg-blue-50 text-blue-700"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                    onClick={() => setPeriods(Math.max(1, periods - 1))}
+                    className="w-7 h-7 rounded-md border border-gray-300 bg-white hover:bg-gray-100 flex items-center justify-center text-xs font-bold text-slate-700 disabled:opacity-40 transition-colors"
+                    disabled={periods <= 1}
                   >
-                    <div className="font-semibold">{option.label}</div>
-                    <div className="text-xs opacity-75">{option.price}₼</div>
+                    -
                   </button>
-                ))}
+                  <input
+                    type="number"
+                    min="1"
+                    max="36"
+                    value={periods}
+                    onChange={(e) =>
+                      setPeriods(
+                        Math.max(
+                          1,
+                          Math.min(36, parseInt(e.target.value) || 1),
+                        ),
+                      )
+                    }
+                    className="w-12 text-center text-xs font-bold border border-gray-300 bg-white rounded-md py-1 px-1 focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPeriods(Math.min(36, periods + 1))}
+                    className="w-7 h-7 rounded-md border border-gray-300 bg-white hover:bg-gray-100 flex items-center justify-center text-xs font-bold text-slate-700 disabled:opacity-40 transition-colors"
+                    disabled={periods >= 36}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </div>
-
-            {/* Periods selection */}
-            <div className="mb-4">
-              <label
-                className="block text-sm font-medium mb-2"
-                style={{ color: "#1E3A5F" }}
-              >
-                Количество периодов
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPeriods(Math.max(1, periods - 1))}
-                  className="w-10 h-10 rounded-lg border-2 border-gray-200 hover:border-gray-300 flex items-center justify-center font-semibold"
-                  disabled={periods <= 1}
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  max="36"
-                  value={periods}
-                  onChange={(e) =>
-                    setPeriods(
-                      Math.max(1, Math.min(36, parseInt(e.target.value) || 1)),
-                    )
-                  }
-                  className="w-20 text-center font-semibold border-2 border-gray-200 rounded-lg p-2"
-                />
-                <button
-                  type="button"
-                  onClick={() => setPeriods(Math.min(36, periods + 1))}
-                  className="w-10 h-10 rounded-lg border-2 border-gray-200 hover:border-gray-300 flex items-center justify-center font-semibold"
-                  disabled={periods >= 36}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Total price */}
-            <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-5xl font-bold" style={{ color: "#1E3A5F" }}>
-                {(durationOptions.find((d) => d.id === selectedDuration)
-                  ?.price || 20) * periods}
-                ₼
-              </span>
-              <span className="text-sm" style={{ color: "#94A3B8" }}>
-                {periods > 1
-                  ? ` (${periods} ${periods === 1 ? "период" : periods < 5 ? "периода" : "периодов"})`
-                  : ""}
-              </span>
             </div>
 
             {error && (
@@ -413,7 +428,7 @@ const PricingInner = () => {
                   )}
                   <Link href="/courses" className="block w-full">
                     <Button
-                      className="w-full font-medium flex items-center justify-center gap-2"
+                      className="w-full text-lg font-bold h-14 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all"
                       style={{
                         background: "#3B82F6",
                         color: "#fff",
@@ -421,7 +436,7 @@ const PricingInner = () => {
                       }}
                     >
                       Перейти к курсам
-                      <ArrowRight className="w-4 h-4" />
+                      <ArrowRight className="w-5 h-5" />
                     </Button>
                   </Link>
                 </div>
@@ -456,7 +471,7 @@ const PricingInner = () => {
 
                   <Button
                     onClick={handleSubscribe}
-                    className="w-full font-medium"
+                    className="w-full text-lg font-bold h-14 rounded-xl shadow-md transition-all"
                     style={{
                       background: "#3B82F6",
                       color: "#fff",
@@ -474,7 +489,7 @@ const PricingInner = () => {
             ) : (
               <Link href="/login">
                 <Button
-                  className="w-full font-medium"
+                  className="w-full text-lg font-bold h-14 rounded-xl shadow-md transition-all"
                   style={{
                     background: "#3B82F6",
                     color: "#fff",

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
 import { privacyContent } from "@/components/homepage/legal-content";
 import Footer from "@/components/homepage/footer";
+import { BackButton } from "@/components/ui/back-button";
 
 export const metadata: Metadata = {
   title: "Политика конфиденциальности — Info Academy",
@@ -17,13 +17,7 @@ export default function PrivacyPage() {
       {/* Minimalist Top Nav */}
       <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-slate-600 hover:text-[#1E3A5F] text-sm font-medium transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>На главную</span>
-          </Link>
+          <BackButton />
           <Link href="/" className="flex items-center gap-2">
             <Image
               src="/ia_logo_no_bg.png"
