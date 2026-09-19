@@ -8,10 +8,8 @@ import {
 } from "@/components/homepage/legal-content";
 
 const DURATION_CONFIG: Record<string, { months: number; amount: number }> = {
-  "weekly": { months: 0.25, amount: 10.0 },
-  "monthly": { months: 1, amount: 25.0 },
-  "9month": { months: 9, amount: 150.0 },
-  "yearly": { months: 12, amount: 220.0 },
+  weekly: { months: 0.25, amount: 8.0 },
+  monthly: { months: 1, amount: 20.0 },
 };
 
 export async function POST(req: NextRequest) {
@@ -25,7 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    
+
     // Support both old plan format and new duration/periods format
     let totalMonths: number;
     let amount: number;
@@ -38,18 +36,21 @@ export async function POST(req: NextRequest) {
       periods = body.periods;
       const config = DURATION_CONFIG[durationType];
       if (!config) {
-        return NextResponse.json({ error: "Invalid duration" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Invalid duration" },
+          { status: 400 },
+        );
       }
       totalMonths = body.totalMonths || config.months * periods;
       amount = body.amount || config.amount * periods;
     } else {
       // Legacy format for backward compatibility
       const plan = body?.plan || "1m";
-      const selected = DURATION_CONFIG[plan === "1m" ? "monthly" : plan === "6m" ? "9month" : "monthly"];
+      durationType = plan === "weekly" ? "weekly" : "monthly";
+      const selected = DURATION_CONFIG[durationType];
       if (!selected) {
         return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
       }
-      durationType = "monthly";
       periods = 1;
       totalMonths = selected.months;
       amount = selected.amount;

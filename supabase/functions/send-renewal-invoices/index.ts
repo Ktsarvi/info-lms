@@ -91,15 +91,13 @@ async function createRenewalInvoice(user: ExpiringUser) {
   
   // Calculate amount based on user's last selected duration and periods
   const durationConfig: Record<string, { amount: number; label: string }> = {
-    "weekly": { amount: 10, label: "недельный" },
-    "monthly": { amount: 25, label: "месячный" },
-    "9month": { amount: 150, label: "9 месяцев" },
-    "yearly": { amount: 220, label: "годовой" },
+    "weekly": { amount: 8, label: "недельный" },
+    "monthly": { amount: 20, label: "месячный" },
   };
   
   const lastDuration = user.last_duration_type || "monthly";
   const lastPeriods = user.last_periods || 1;
-  const config = durationConfig[lastDuration];
+  const config = durationConfig[lastDuration] || durationConfig["monthly"];
   const amount = config.amount * lastPeriods;
   const durationLabel = lastPeriods > 1 
     ? `${lastPeriods} ${lastPeriods === 1 ? 'период' : lastPeriods < 5 ? 'периода' : 'периодов'} (${config.label})`
