@@ -60,11 +60,7 @@ async function payriffRequest<T>(
   });
 
   if (data.code !== "00000") {
-    throw new PayriffError(
-      data.code,
-      data.message,
-      null,
-    );
+    throw new PayriffError(data.code, data.message, null);
   }
 
   return data;
@@ -87,49 +83,54 @@ function toPayriffPhone(phone: string): string {
 
 async function createRenewalInvoice(user: ExpiringUser) {
   const expireDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const appUrl = Deno.env.get("NEXT_PUBLIC_APP_URL") || "https://infoacademy.netlify.app";
-  
+  const appUrl =
+    Deno.env.get("NEXT_PUBLIC_APP_URL") || "https://infoacademy.netlify.app";
+
   // Calculate amount based on user's last selected duration and periods
   const durationConfig: Record<string, { amount: number; label: string }> = {
-    "weekly": { amount: 8, label: "недельный" },
-    "monthly": { amount: 20, label: "месячный" },
+    weekly: { amount: 8, label: "недельный" },
+    monthly: { amount: 20, label: "месячный" },
   };
-  
+
   const lastDuration = user.last_duration_type || "monthly";
   const lastPeriods = user.last_periods || 1;
   const config = durationConfig[lastDuration] || durationConfig["monthly"];
   const amount = config.amount * lastPeriods;
-  const durationLabel = lastPeriods > 1 
-    ? `${lastPeriods} ${lastPeriods === 1 ? 'период' : lastPeriods < 5 ? 'периода' : 'периодов'} (${config.label})`
-    : config.label;
-  
-  try {
-    const data = await payriffRequest<{ id: number; paymentUrl: string; invoiceUuid: string }>(
-      "v2",
-      "invoices",
-      {
-        merchant: PAYRIFF_MERCHANT_ID,
-        body: {
-          amount: amount,
-          fullName: user.full_name || "Customer",
-          email: user.email,
-          phoneNumber: toPayriffPhone(user.phone),
-          description: `Info Academy subscription renewal (${durationLabel})`,
-          currencyType: "AZN",
-          languageType: "AZ",
-          expireDate: expireDate.toISOString(),
-          approveURL: `${appUrl}/courses?success=1`,
-          cancelURL: `${appUrl}/pricing`,
-          declineURL: `${appUrl}/pricing?error=payment_failed`,
-          sendSms: true,
-          sendEmail: true,
-          directPay: true,
-          customMessage: `Ваша подписка истекает через ${user.days_until_expiry} ${user.days_until_expiry === 1 ? 'день' : user.days_until_expiry < 5 ? 'дня' : 'дней'}. Продлите: ${durationLabel} за ${amount}₼`,
-        },
-      }
-    );
+  const durationLabel =
+    lastPeriods > 1
+      ? `${lastPeriods} ${lastPeriods === 1 ? "период" : lastPeriods < 5 ? "периода" : "периодов"} (${config.label})`
+      : config.label;
 
-    console.log(`Invoice created successfully for user ${user.user_id}:`, data.payload);
+  try {
+    const data = await payriffRequest<{
+      id: number;
+      paymentUrl: string;
+      invoiceUuid: string;
+    }>("v2", "invoices", {
+      merchant: PAYRIFF_MERCHANT_ID,
+      body: {
+        amount: amount,
+        fullName: user.full_name || "Customer",
+        email: user.email,
+        phoneNumber: toPayriffPhone(user.phone),
+        description: `Info Academy subscription renewal (${durationLabel})`,
+        currencyType: "AZN",
+        languageType: "RU",
+        expireDate: expireDate.toISOString(),
+        approveURL: `${appUrl}/courses?success=1`,
+        cancelURL: `${appUrl}/pricing`,
+        declineURL: `${appUrl}/pricing?error=payment_failed`,
+        sendSms: true,
+        sendEmail: true,
+        directPay: true,
+        customMessage: `Ваша подписка истекает через ${user.days_until_expiry} ${user.days_until_expiry === 1 ? "день" : user.days_until_expiry < 5 ? "дня" : "дней"}. Продлите: ${durationLabel} за ${amount}₼`,
+      },
+    });
+
+    console.log(
+      `Invoice created successfully for user ${user.user_id}:`,
+      data.payload,
+    );
     return { ok: true as const, data: data.payload };
   } catch (error) {
     console.error(`Failed to create invoice for user ${user.user_id}:`, error);
@@ -170,7 +171,9 @@ Deno.serve(async (req: Request) => {
   const expectedSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!isServiceRoleRequest(authHeader, expectedSecret)) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    });
   }
 
   const supabase = createClient(
@@ -180,11 +183,13 @@ Deno.serve(async (req: Request) => {
 
   const { data: expiringUsers, error } = await supabase.rpc(
     "get_expiring_subscriptions",
-    { days_threshold: 7 }
+    { days_threshold: 3 },
   );
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+    });
   }
 
   const results = [];
@@ -199,7 +204,11 @@ Deno.serve(async (req: Request) => {
           status: "failed",
           error_message: "Missing profiles.phone",
         });
-        results.push({ user_id: user.user_id, status: "failed", error: "Missing profiles.phone" });
+        results.push({
+          user_id: user.user_id,
+          status: "failed",
+          error: "Missing profiles.phone",
+        });
         continue;
       }
 
@@ -221,9 +230,9 @@ Deno.serve(async (req: Request) => {
       });
     } catch (err) {
       console.error("Failed to create invoice:", err);
-      
+
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
-      
+
       await supabase.from("notification_logs").insert({
         user_id: user.user_id,
         type: "invoice",
@@ -231,18 +240,27 @@ Deno.serve(async (req: Request) => {
         status: "failed",
         error_message: errorMessage,
       });
-      
-      results.push({ user_id: user.user_id, status: "error", error: errorMessage });
+
+      results.push({
+        user_id: user.user_id,
+        status: "error",
+        error: errorMessage,
+      });
     }
   }
 
-  return new Response(JSON.stringify({ 
-    processed: results.length, 
-    results,
-    summary: {
-      total: results.length,
-      sent: results.filter(r => r.status === "sent").length,
-      failed: results.filter(r => r.status === "failed" || r.status === "error").length
-    }
-  }), { status: 200 });
+  return new Response(
+    JSON.stringify({
+      processed: results.length,
+      results,
+      summary: {
+        total: results.length,
+        sent: results.filter((r) => r.status === "sent").length,
+        failed: results.filter(
+          (r) => r.status === "failed" || r.status === "error",
+        ).length,
+      },
+    }),
+    { status: 200 },
+  );
 });

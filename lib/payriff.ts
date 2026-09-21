@@ -2,7 +2,6 @@
 // Payriff Gateway API client — single env var set, manually toggle base URL for sandbox/prod.
 
 const PAYRIFF_SECRET_KEY = process.env.PAYRIFF_SECRET_KEY!;
-const PAYRIFF_MERCHANT_ID = process.env.PAYRIFF_MERCHANT_ID!;
 
 // Toggle this manually between sandbox and production before deploying.
 // Based on Payriff docs, the base URL should be https://api.payriff.ae
@@ -208,7 +207,7 @@ export async function createOrder(
   if (params.phone) {
     requestBody.phone = params.phone;
   }
-  
+
   // Only include approveURL, cancelURL, declineURL if they're provided
   if (params.approveURL) requestBody.approveURL = params.approveURL;
   if (params.cancelURL) requestBody.cancelURL = params.cancelURL;
@@ -305,7 +304,7 @@ export async function deleteSavedCard(cardUuid: string): Promise<void> {
  * Customer is redirected to paymentUrl to enter card details (0.01 AZN verification).
  */
 export async function saveCard(
-  params: SaveCardParams
+  params: SaveCardParams,
 ): Promise<SaveCardPayload> {
   const res = await payriffRequest<SaveCardPayload>("v3", "cards/save", {
     customerRef: params.customerRef,
@@ -351,7 +350,7 @@ export type CreateInvoicePayload = {
  */
 export async function createInvoice(
   merchantId: string,
-  params: CreateInvoiceParams
+  params: CreateInvoiceParams,
 ): Promise<CreateInvoicePayload> {
   const res = await payriffRequest<CreateInvoicePayload>("v2", "invoices", {
     merchant: merchantId,
