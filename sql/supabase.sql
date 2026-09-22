@@ -436,7 +436,11 @@ original_day := extract(
   day
   from base_date
 );
-target_expiry := base_date + (p_plan_months || ' months')::interval;
+  if p_plan_months <= 0 then
+    target_expiry := base_date + (greatest(7, abs(p_plan_months)) || ' days')::interval;
+  else
+    target_expiry := base_date + (p_plan_months || ' months')::interval;
+  end if;
 -- If the day of month decreased (e.g., Jan 31 -> Feb 28), we rolled back to previous month end
 -- This is correct behavior, but ensure we don't go backward
 if extract(

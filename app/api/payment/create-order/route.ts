@@ -73,12 +73,17 @@ export async function POST(req: NextRequest) {
     // step, Payriff's createOrder call itself returns its own orderId —
     // we'll write that back onto this row right after the call below, so
     // the callback route can correlate by payriff_order_id.
+    const planMonths =
+      durationType === "weekly"
+        ? -(Math.max(1, periods) * 7)
+        : Math.max(1, Math.round(totalMonths));
+
     const { data: payment, error: dbError } = await serviceClient
       .from("payments")
       .insert({
         user_id: user.id,
         amount: amount,
-        plan_months: totalMonths,
+        plan_months: planMonths,
         status: "pending",
       })
       .select()
