@@ -73,10 +73,17 @@ export async function POST(req: NextRequest) {
     // step, Payriff's createOrder call itself returns its own orderId —
     // we'll write that back onto this row right after the call below, so
     // the callback route can correlate by payriff_order_id.
-    const planMonths =
-      durationType === "weekly"
-        ? -(Math.max(1, periods) * 7)
-        : Math.max(1, Math.round(totalMonths));
+    let planMonths: number;
+    let periodType: string;
+    if (durationType === "weekly") {
+      // Store number of weeks as positive integer
+      planMonths = Math.max(1, periods);
+      periodType = "week";
+    } else {
+      // Monthly subscription: store months (rounded up)
+      planMonths = Math.max(1, Math.round(totalMonths));
+      periodType = "month";
+    }
 
     const { data: payment, error: dbError } = await serviceClient
       .from("payments")
@@ -84,6 +91,7 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         amount: amount,
         plan_months: planMonths,
+        period_type: periodType,
         status: "pending",
       })
       .select()

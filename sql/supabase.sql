@@ -321,11 +321,13 @@ create table if not exists payments (
 );
 -- Same idempotency guarantee as profiles above.
 alter table payments
-add column if not exists payriff_order_id text;
+  add column if not exists payriff_order_id text;
 alter table payments
-add column if not exists payriff_transaction_id text;
+  add column if not exists payriff_transaction_id text;
 alter table payments
-add column if not exists is_renewal boolean not null default false;
+  add column if not exists is_renewal boolean not null default false;
+alter table payments
+  add column if not exists period_type text not null default 'month';
 -- Ensure foreign key has ON DELETE CASCADE for existing deployments
 do $$ begin if exists (
   select 1
@@ -416,49 +418,65 @@ create or replace function grant_subscription_and_mark_paid (
     p_card_uuid text default null,
     p_transaction_id text default null
   ) returns void as $$
-declare base_date timestamptz;
-current_expiry timestamptz;
-target_expiry timestamptz;
-original_day int;
-begin -- Get current subscription expiry
-select subscription_expires_at into current_expiry
-from profiles
-where id = p_user_id for
-update;
--- Lock the row to prevent concurrent updates
--- Calculate base date: if subscription is still valid, extend from there; otherwise use now
-if current_expiry is not null
-and current_expiry > now() then base_date := current_expiry;
-else base_date := now();
-end if;
--- Calculate target expiry date (handle month-end rollover)
-original_day := extract(
-  day
-  from base_date
-);
-  if p_plan_months <= 0 then
-    target_expiry := base_date + (greatest(7, abs(p_plan_months)) || ' days')::interval;
-  else
-    target_expiry := base_date + (p_plan_months || ' months')::interval;
+declare
+  base_date timestamptz;
+  current_expiry timestamptz;
+  target_expiry timestamptz;
+  v_period_type text;
+  v_status text;
+begin
+  -- Idempotency guard: if this payment was already marked paid, do nothing
+  select status into v_status
+  from payments
+  where id = p_payment_id
+  for update;
+
+  if v_status = 'paid' then
+    return;
   end if;
--- If the day of month decreased (e.g., Jan 31 -> Feb 28), we rolled back to previous month end
--- This is correct behavior, but ensure we don't go backward
-if extract(
-  day
-  from target_expiry
-) < original_day then -- PostgreSQL already handles this correctly by rolling to month end
--- No additional adjustment needed
-end if;
--- Update profile with subscription and optionally card info
-update profiles
-set is_subscribed = true,
-  subscription_expires_at = target_expiry
-where id = p_user_id;
--- Mark payment as paid
-update payments
-set status = 'paid',
-  payriff_transaction_id = p_transaction_id
-where id = p_payment_id;
+
+  -- Get current subscription expiry
+  select subscription_expires_at into current_expiry
+  from profiles
+  where id = p_user_id
+  for update;
+
+  -- Determine base date
+  if current_expiry is not null and current_expiry > now() then
+    base_date := current_expiry;
+  else
+    base_date := now();
+  end if;
+
+  -- Fetch payment's period_type
+  select period_type into v_period_type
+  from payments
+  where id = p_payment_id;
+
+  -- Calculate target expiry based on period_type
+  if v_period_type = 'week' then
+    -- p_plan_months holds number of weeks
+    target_expiry := base_date + (p_plan_months * 7 || ' days')::interval;
+  else
+    -- Default month handling
+    if p_plan_months <= 0 then
+      target_expiry := base_date + (greatest(7, abs(p_plan_months)) || ' days')::interval;
+    else
+      target_expiry := base_date + (p_plan_months || ' months')::interval;
+    end if;
+  end if;
+
+  -- Update profile with new subscription expiry
+  update profiles
+  set is_subscribed = true,
+      subscription_expires_at = target_expiry
+  where id = p_user_id;
+
+  -- Mark payment as paid
+  update payments
+  set status = 'paid',
+      payriff_transaction_id = p_transaction_id
+  where id = p_payment_id;
 end;
 $$ language plpgsql security definer;
 revoke execute on function grant_subscription_and_mark_paid (uuid, bigint, int, text, text)
@@ -504,9 +522,8 @@ select p.id as user_id,
   p.phone,
   p.full_name,
   p.subscription_expires_at,
-  extract(
-    day
-    from (p.subscription_expires_at - now())
+  ceil(
+    extract(epoch from (p.subscription_expires_at - now())) / 86400
   )::int as days_until_expiry,
   p.last_duration_type,
   p.last_periods
@@ -544,9 +561,8 @@ select p.is_subscribed,
   p.subscription_expires_at,
   case
     when p.subscription_expires_at is null then null
-    when p.subscription_expires_at > now() then extract(
-      day
-      from (p.subscription_expires_at - now())
+    when p.subscription_expires_at > now() then ceil(
+      extract(epoch from (p.subscription_expires_at - now())) / 86400
     )::int
     else 0
   end as days_remaining,

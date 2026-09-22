@@ -409,83 +409,92 @@ const PricingInner = () => {
             )}
 
             {isAuthenticated ? (
-              isSubscribed ? (
-                <div className="space-y-3">
-                  {subscriptionInfo?.is_expired ? (
-                    <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm text-center font-medium border border-red-200">
-                      Ваша подписка истекла
-                    </div>
-                  ) : subscriptionInfo &&
-                    subscriptionInfo.days_remaining !== null ? (
-                    <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
-                      Осталось {subscriptionInfo.days_remaining}{" "}
-                      {getDayWord(subscriptionInfo.days_remaining)}
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
-                      У вас активна подписка
-                    </div>
-                  )}
+              <div className="space-y-4">
+                {/* Always show subscription status when subscribed */}
+                {isSubscribed && (
+                  <div>
+                    {subscriptionInfo?.is_expired ? (
+                      <div className="p-3 bg-red-50 rounded-lg text-red-800 text-sm text-center font-medium border border-red-200">
+                        Ваша подписка истекла
+                      </div>
+                    ) : subscriptionInfo &&
+                      subscriptionInfo.days_remaining !== null ? (
+                      <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
+                        Осталось {subscriptionInfo.days_remaining}{" "}
+                        {getDayWord(subscriptionInfo.days_remaining)}
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800 text-sm text-center font-medium border border-emerald-200">
+                        У вас активна подписка
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Payment form — always visible for authenticated users */}
+                <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                  />
+                  <span className="leading-snug">
+                    Я принимаю{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      Условия обслуживания
+                    </Link>{" "}
+                    и{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="text-blue-600 hover:underline font-medium"
+                    >
+                      Политику конфиденциальности
+                    </Link>
+                  </span>
+                </label>
+
+                <Button
+                  onClick={handleSubscribe}
+                  className="w-full text-lg font-bold h-14 rounded-xl shadow-md transition-all"
+                  style={{
+                    background: "#3B82F6",
+                    color: "#fff",
+                    border: "none",
+                    opacity: !agreedToTerms || loading ? 0.6 : 1,
+                    cursor:
+                      !agreedToTerms || loading ? "not-allowed" : "pointer",
+                  }}
+                  disabled={loading || !agreedToTerms}
+                >
+                  {loading
+                    ? "Переход к оплате..."
+                    : isSubscribed
+                      ? "Продлить подписку"
+                      : "Подписаться"}
+                </Button>
+
+                {isSubscribed && (
                   <Link href="/courses" className="block w-full">
                     <Button
-                      className="w-full text-lg font-bold h-14 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all"
+                      className="w-full text-base font-semibold h-11 rounded-xl flex items-center justify-center gap-2 transition-all"
                       style={{
-                        background: "#3B82F6",
-                        color: "#fff",
-                        border: "none",
+                        background: "transparent",
+                        color: "#3B82F6",
+                        border: "2px solid #3B82F6",
                       }}
                     >
                       Перейти к курсам
-                      <ArrowRight className="w-5 h-5" />
+                      <ArrowRight className="w-4 h-4" />
                     </Button>
                   </Link>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <label className="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={agreedToTerms}
-                      onChange={(e) => setAgreedToTerms(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
-                    />
-                    <span className="leading-snug">
-                      Я принимаю{" "}
-                      <Link
-                        href="/terms"
-                        target="_blank"
-                        className="text-blue-600 hover:underline font-medium"
-                      >
-                        Условия обслуживания
-                      </Link>{" "}
-                      и{" "}
-                      <Link
-                        href="/privacy"
-                        target="_blank"
-                        className="text-blue-600 hover:underline font-medium"
-                      >
-                        Политику конфиденциальности
-                      </Link>
-                    </span>
-                  </label>
-
-                  <Button
-                    onClick={handleSubscribe}
-                    className="w-full text-lg font-bold h-14 rounded-xl shadow-md transition-all"
-                    style={{
-                      background: "#3B82F6",
-                      color: "#fff",
-                      border: "none",
-                      opacity: !agreedToTerms || loading ? 0.6 : 1,
-                      cursor:
-                        !agreedToTerms || loading ? "not-allowed" : "pointer",
-                    }}
-                    disabled={loading || !agreedToTerms}
-                  >
-                    {loading ? "Переход к оплате..." : "Подписаться"}
-                  </Button>
-                </div>
-              )
+                )}
+              </div>
             ) : (
               <Link href="/login">
                 <Button
