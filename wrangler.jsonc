@@ -1,9 +1,14 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "info-lms",
+  "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-22",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "assets": {
-    "directory": ".next"
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
   },
   "vars": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://maxizbssbrsrifcklwkb.supabase.co",
