@@ -2,7 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "info-lms",
   "compatibility_date": "2026-09-22",
-  "pages_build_output_dir": ".next",
+  "assets": {
+    "directory": ".next"
+  },
   "vars": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://maxizbssbrsrifcklwkb.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1heGl6YnNzYnJzcmlmY2tsd2tiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY1MzAwODIsImV4cCI6MjEwMjEwNjA4Mn0.9wBZ3r8dRFmzYHc69vxwByrcBTkLL5RtyXHGbqyvqpQ",
