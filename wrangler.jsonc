@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "info-lms",
+  "compatibility_date": "2026-09-22",
   "pages_build_output_dir": ".next",
   "vars": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://maxizbssbrsrifcklwkb.supabase.co",
